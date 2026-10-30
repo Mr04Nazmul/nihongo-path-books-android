@@ -180,12 +180,12 @@ class MainActivity : ComponentActivity() {
         if(tab=="Account"&&vault.read().isEmpty()){loginScreen();return}
         root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(paper);setPadding(dp(16),dp(25),dp(16),dp(8))}
         val head=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,0,0,dp(8))}
-        head.addView(ImageView(this).apply{setImageResource(R.drawable.ic_books);scaleType=ImageView.ScaleType.CENTER_CROP},LinearLayout.LayoutParams(dp(34),dp(34)).apply{setMargins(0,0,dp(10),0)})
+        head.addView(ImageView(this).apply{setImageResource(R.drawable.ic_books);scaleType=ImageView.ScaleType.CENTER_CROP},LinearLayout.LayoutParams(dp(if(compact)26 else 34),dp(if(compact)26 else 34)).apply{setMargins(0,0,dp(if(compact)6 else 10),0)})
         head.addView(text("Nihongo\nPath Books",if(compact)12f else 14f).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END;typeface=android.graphics.Typeface.create("serif",android.graphics.Typeface.BOLD)},LinearLayout.LayoutParams(0,-2,1f))
-        head.addView(quietButton("♛"){tab="Rewards";draw()}.apply{contentDescription=tr("Rewards","ক্রেডিট");textSize=20f;setTextColor(Color.rgb(231,181,76))},LinearLayout.LayoutParams(dp(30),dp(40)))
-        head.addView(quietButton("◐"){appearanceDialog()}.apply{contentDescription=tr("Theme & colour","থিম ও রং")},LinearLayout.LayoutParams(dp(30),dp(40)))
-        head.addView(quietButton("ⓘ"){tab="About";draw()},LinearLayout.LayoutParams(dp(28),dp(40)))
-        head.addView(quietButton(if(bn)"EN" else "বাংলা"){bn=!bn;draw()},LinearLayout.LayoutParams(dp(32),dp(40)));root.addView(head)
+        head.addView(quietButton("♛"){tab="Rewards";draw()}.apply{contentDescription=tr("Rewards","ক্রেডিট");textSize=20f;setTextColor(Color.rgb(231,181,76))},LinearLayout.LayoutParams(dp(if(compact)24 else 30),dp(40)))
+        head.addView(quietButton("◐"){appearanceDialog()}.apply{contentDescription=tr("Theme & colour","থিম ও রং")},LinearLayout.LayoutParams(dp(if(compact)24 else 30),dp(40)))
+        head.addView(quietButton("ⓘ"){tab="About";draw()},LinearLayout.LayoutParams(dp(if(compact)24 else 28),dp(40)))
+        head.addView(quietButton(if(bn)"EN" else "বাংলা"){bn=!bn;draw()},LinearLayout.LayoutParams(dp(if(compact)28 else 32),dp(40)));root.addView(head)
         val scroll=ScrollView(this);area=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL};scroll.addView(area);root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
         val nav=LinearLayout(this).apply{setPadding(0,dp(8),0,0)}
         listOf("Home","Books","Quiz","Progress","Account").forEach { page->
