@@ -200,7 +200,7 @@ class MainActivity : ComponentActivity() {
     private fun home(){
         add("こんにちは！",23f);add(tr("Let's continue your Japanese journey","চলুন, জাপানি শেখার পথে এগিয়ে যাই"),12f)
         val study=data.optJSONObject("studyState")?:JSONObject()
-        card{setPadding(dp(14),dp(8),dp(14),dp(8));addView(text(tr("My progress","আমার অগ্রগতি"),12f));val row=LinearLayout(this);row.addView(text(selected,17f),LinearLayout.LayoutParams(0,-2,1f));row.addView(text(tr("${study.optJSONArray("learned")?.length()?:0} learned","${study.optJSONArray("learned")?.length()?:0}টি শেখা হয়েছে"),12f));addView(row)}
+        card{setPadding(dp(14),dp(8),dp(14),dp(8));addView(text(tr("My progress","আমার অগ্রগতি"),12f));val row=LinearLayout(this@MainActivity);row.addView(text(selected,17f),LinearLayout.LayoutParams(0,-2,1f));row.addView(text(tr("${study.optJSONArray("learned")?.length()?:0} learned","${study.optJSONArray("learned")?.length()?:0}টি শেখা হয়েছে"),12f));addView(row)}
         val hero=FrameLayout(this)
         hero.addView(ImageView(this).apply{setImageResource(R.drawable.sakura_journey);scaleType=ImageView.ScaleType.CENTER_CROP},FrameLayout.LayoutParams(-1,dp(150)))
         hero.addView(text("毎日の一歩が、未来をつくる。\n"+tr("Small steps today. A brighter future tomorrow.","প্রতিদিন একটু করে, আগামীর পথে।"),13f).apply{setPadding(dp(14),dp(96),dp(14),dp(10));setShadowLayer(8f,0f,2f,Color.BLACK)},FrameLayout.LayoutParams(-1,-1));area.addView(hero)
