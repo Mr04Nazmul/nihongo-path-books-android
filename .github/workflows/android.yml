@@ -38,6 +38,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       BOOKS_API_URL: ${{ vars.SUPABASE_BOOKS_API_URL }}
+      BOOKS_LIVE_ADS: 'false'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -116,9 +117,11 @@ jobs:
         run: |
           ./gradlew assembleDebug
           mkdir -p build/live-delivery
-          cp app/build/outputs/apk/debug/app-debug.apk build/live-delivery/Nihongo-Path-Books-1.6.0.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify build/live-delivery/Nihongo-Path-Books-1.6.0.apk
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging build/live-delivery/Nihongo-Path-Books-1.6.0.apk | head -1
+          cp app/build/outputs/apk/debug/app-debug.apk build/live-delivery/Nihongo-Path-Books-1.7.0.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree build/live-delivery/Nihongo-Path-Books-1.7.0.apk AndroidManifest.xml | grep -F 'ca-app-pub-3728341118830943~7145978290'
+          python3 -c "import zipfile; z=zipfile.ZipFile('build/live-delivery/Nihongo-Path-Books-1.7.0.apk'); assert any(b'ca-app-pub-3728341118830943/5055001578' in z.read(n) for n in z.namelist() if n.endswith('.dex')), 'Owner rewarded unit missing'"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify build/live-delivery/Nihongo-Path-Books-1.7.0.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging build/live-delivery/Nihongo-Path-Books-1.7.0.apk | head -1
         working-directory: android-app
       - uses: actions/upload-artifact@v4
         with:
@@ -128,6 +131,8 @@ jobs:
   device:
     needs: apk
     name: Install and launch · API ${{ matrix.api }} · ${{ matrix.arch }}
+    env:
+      BOOKS_LIVE_ADS: 'false'
     strategy:
       fail-fast: false
       matrix:
@@ -144,7 +149,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - uses: actions/download-artifact@v4
         with:
-          name: Nihongo-Path-Books-debug-APK
+          name: Nihongo-Path-Books-owner-AdMob-APK
           path: delivered-apk
       - name: Enable KVM
         run: |
@@ -172,9 +177,11 @@ jobs:
             adb exec-out run-as online.devnazu.books cat files/rewards-preview.png > app/build/reports/androidTests/rewards-preview.png
             adb exec-out run-as online.devnazu.books cat files/auth-preview.png > app/build/reports/androidTests/auth-preview.png
             adb exec-out run-as online.devnazu.books cat files/signup-preview.png > app/build/reports/androidTests/signup-preview.png
+            adb exec-out run-as online.devnazu.books cat files/profile-preview.png > app/build/reports/androidTests/profile-preview.png
+            adb exec-out run-as online.devnazu.books cat files/preferences-preview.png > app/build/reports/androidTests/preferences-preview.png
             python3 -c "from pathlib import Path; p=Path('app/build/reports/androidTests/auth-preview.png'); assert p.read_bytes().startswith(bytes.fromhex('89504e470d0a1a0a')), 'Auth capture is not a PNG'"
             if adb shell pm path online.devnazu.books | grep -q '^package:'; then adb uninstall online.devnazu.books; fi
-            adb install ../delivered-apk/app-debug.apk
+            adb install ../delivered-apk/Nihongo-Path-Books-1.7.0.apk
             adb logcat -c
             adb shell am start -W -n online.devnazu.books/.MainActivity
             sleep 5

@@ -1,6 +1,6 @@
 plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }
 fun setting(key: String, fallback: String = "") = providers.environmentVariable(key).orNull?.takeIf { it.isNotBlank() } ?: fallback
-val liveAds = setting("BOOKS_LIVE_ADS", "false").toBooleanStrict()
+val liveAds = setting("BOOKS_LIVE_ADS", "true").toBooleanStrict()
 android {
     namespace = "online.devnazu.books"
     compileSdk = 36
@@ -8,8 +8,8 @@ android {
         applicationId = "online.devnazu.books"
         minSdk = 23
         targetSdk = 36
-        versionCode = 13
-        versionName = if (liveAds) "1.6.0" else "1.6.0-test"
+        versionCode = 14
+        versionName = if (liveAds) "1.7.0" else "1.7.0-test"
         buildConfigField("String", "API_BASE", "\"${setting("BOOKS_API_URL", "https://vjygltfnrmyghlwyjtwu.supabase.co/functions/v1/nihongo-books-v1")}\"")
         buildConfigField("boolean", "LIVE_ADS", liveAds.toString())
         buildConfigField("String", "REWARDED_ID", "\"${if (liveAds) "ca-app-pub-3728341118830943/5055001578" else "ca-app-pub-3940256099942544/5224354917"}\"")

@@ -11,6 +11,31 @@ class ProtectionTest {
   androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.getSharedPreferences("MainActivity",android.content.Context.MODE_PRIVATE).edit().putBoolean("introduced",true).commit()
  }
 
+ @Test fun profileUsesNativePreferencesAndNoManualSync(){
+  val context=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext;TokenVault(context).clear()
+  try{ActivityScenario.launch(MainActivity::class.java).use{scenario->scenario.onActivity{a->
+   TokenVault(a).save("a".repeat(43))
+   MainActivity::class.java.getDeclaredField("data").apply{isAccessible=true}.set(a,org.json.JSONObject("""{"user":{"id":"fixture","name":"Student","email":"student@example.invalid","role":"student"},"studyState":{}}"""))
+   MainActivity::class.java.getDeclaredField("tab").apply{isAccessible=true}.set(a,"Account")
+   MainActivity::class.java.getDeclaredMethod("draw").apply{isAccessible=true}.invoke(a)
+   fun views(v:android.view.View):List<android.view.View> = listOf(v)+(if(v is android.view.ViewGroup)(0 until v.childCount).flatMap{views(v.getChildAt(it))}else emptyList())
+   val all=views(a.window.decorView);assertFalse(all.filterIsInstance<android.widget.TextView>().any{it.text.toString() in listOf("Sync devices","সিঙ্ক করুন")})
+   all.first{it.contentDescription?.toString() in listOf("Reading preferences","পড়ার পছন্দ")}.performClick()
+   assertFalse(views(a.window.decorView).any{it is android.webkit.WebView})
+   assertTrue(views(a.window.decorView).filterIsInstance<android.widget.TextView>().any{it.text.toString() in listOf("Text size","লেখার আকার")})
+   MainActivity::class.java.getDeclaredMethod("openReader",String::class.java,String::class.java).apply{isAccessible=true}.invoke(a,"index.html",null)
+   assertFalse(views(a.window.decorView).any{it is android.webkit.WebView})
+  }}}finally{TokenVault(context).clear()}
+ }
+ @Test fun freeStudyReaderWorksWithoutLogin(){
+  val context=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext;TokenVault(context).clear()
+  ActivityScenario.launch(MainActivity::class.java).use{scenario->
+   scenario.onActivity{a->MainActivity::class.java.getDeclaredMethod("openStudy",String::class.java,String::class.java,Boolean::class.javaPrimitiveType).apply{isAccessible=true}.invoke(a,"N5","vocab",false)}
+   var count=0
+   for(attempt in 0 until 24){val latch=java.util.concurrent.CountDownLatch(1);scenario.onActivity{a->val view=MainActivity::class.java.getDeclaredField("web").apply{isAccessible=true}.get(a) as android.webkit.WebView;view.evaluateJavascript("document.querySelectorAll('article.row').length"){value->count=value.toIntOrNull()?:0;latch.countDown()}};latch.await(2,java.util.concurrent.TimeUnit.SECONDS);if(count==5)break;Thread.sleep(250)}
+   assertEquals("Exactly five vocabulary entries should render offline without login",5,count)
+  }
+ }
  @Test fun secureWindowAndLaunch(){ActivityScenario.launch(MainActivity::class.java).use{scenario->scenario.onActivity{activity->assertTrue(activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0);assertNotNull(activity.findViewById<android.view.View>(android.R.id.content))}}}
  @Test fun accountHasGoogleAndMaskedPassword(){
   ActivityScenario.launch(MainActivity::class.java).use{scenario->scenario.onActivity{a->
@@ -19,13 +44,13 @@ class ProtectionTest {
    buttons().first{it.text.toString() in listOf("Profile","প্রোফাইল")}.performClick()
    val all=views(a.findViewById(android.R.id.content));val labels=all.filterIsInstance<android.widget.TextView>().map{it.text.toString()}
    assertTrue(labels.any{it.contains("Google")});assertFalse(labels.any{it in listOf("Support","সহায়তা","Privacy policy","গোপনীয়তার নীতি")})
-   assertTrue(labels.any{it in listOf("Forgot password? Contact support","পাসওয়ার্ড ভুলে গেছেন? সহায়তা নিন")})
+   assertTrue(labels.any{it in listOf("Forgot password?","পাসওয়ার্ড ভুলে গেছেন?")})
    assertFalse(labels.any{it.contains("Resend confirmation")||it.contains("আবার confirmation")||it.contains("Repository")})
    val password=all.filterIsInstance<android.widget.EditText>().first{it.inputType and android.text.InputType.TYPE_MASK_VARIATION==android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD};assertTrue(password.transformationMethod is android.text.method.PasswordTransformationMethod)
   };androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().waitForIdleSync();scenario.onActivity{a->
    val decor=a.window.decorView;val bitmap=android.graphics.Bitmap.createBitmap(decor.width,decor.height,android.graphics.Bitmap.Config.ARGB_8888);decor.draw(android.graphics.Canvas(bitmap));java.io.File(a.filesDir,"auth-preview.png").outputStream().use{bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)};bitmap.recycle()
    fun descendants(v:android.view.View):List<android.view.View> = listOf(v)+(if(v is android.view.ViewGroup)(0 until v.childCount).flatMap{descendants(v.getChildAt(it))}else emptyList())
-   descendants(decor).filterIsInstance<android.widget.Button>().first{it.text.toString() in listOf("New here? Create an account","নতুন? অ্যাকাউন্ট খুলুন")}.performClick()
+   descendants(decor).filterIsInstance<android.widget.Button>().first{it.text.toString() in listOf("Don't have an account? Sign Up","অ্যাকাউন্ট নেই? Sign Up")}.performClick()
   };androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().waitForIdleSync();scenario.onActivity{a->
    val decor=a.window.decorView
    assertEquals(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE,a.window.attributes.softInputMode and WindowManager.LayoutParams.SOFT_INPUT_MASK_ADJUST)
@@ -53,6 +78,16 @@ class ProtectionTest {
     views(a.window.decorView).filterIsInstance<android.widget.Button>().first{it.contentDescription?.toString() in listOf("Rewards","ক্রেডিট")}.performClick()
    }
    capture("rewards-preview.png")
+   scenario.onActivity{a->
+    TokenVault(a).save("a".repeat(43))
+    MainActivity::class.java.getDeclaredField("data").apply{isAccessible=true}.set(a,org.json.JSONObject("""{"user":{"id":"fixture","name":"Device test student","email":"student@example.invalid","role":"student"},"studyState":{"saved":[],"learned":[]}}"""))
+    MainActivity::class.java.getDeclaredField("tab").apply{isAccessible=true}.set(a,"Account")
+    MainActivity::class.java.getDeclaredMethod("draw").apply{isAccessible=true}.invoke(a)
+   }
+   capture("profile-preview.png")
+   scenario.onActivity{a->MainActivity::class.java.getDeclaredField("tab").apply{isAccessible=true}.set(a,"ReaderSettings");MainActivity::class.java.getDeclaredMethod("draw").apply{isAccessible=true}.invoke(a)}
+   capture("preferences-preview.png")
+   TokenVault(context).clear()
   }
  }
  @Test fun secureContentNotVisibleInScreenCapture(){

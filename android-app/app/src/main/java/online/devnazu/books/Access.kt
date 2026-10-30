@@ -10,5 +10,6 @@ object Access {
         u.scheme == "https" && u.host == "appassets.androidplatform.net" && u.port == -1 && u.userInfo == null &&
             u.path.startsWith("/assets/reader/") && !u.path.contains("..") && !u.path.contains('\\')
     } catch (_: Exception) { false }
+    fun readerScreen(route:String)=route.substringBefore('?').substringBefore('#') in setOf("study.html","pdf-reader.html","listening.html","basics/index.html")
     fun remaining(expiry: Long, serverNow: Long) = (expiry - serverNow).coerceAtLeast(0)
 }

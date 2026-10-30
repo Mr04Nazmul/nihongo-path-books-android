@@ -163,6 +163,7 @@ class MainActivity : ComponentActivity() {
     private fun refresh(after:(()->Unit)?=null){if(vault.read().isEmpty())return;async({api.request("/me")}){applySnapshot(it);after?.invoke()}}
     private fun draw(){
         if(web!=null)return
+        if(tab=="Account"&&vault.read().isEmpty()){loginScreen();return}
         root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(paper);setPadding(dp(16),dp(25),dp(16),dp(8))}
         val head=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,0,0,dp(8))}
         head.addView(ImageView(this).apply{setImageResource(R.drawable.ic_books);scaleType=ImageView.ScaleType.CENTER_CROP},LinearLayout.LayoutParams(dp(34),dp(34)).apply{setMargins(0,0,dp(10),0)})
@@ -178,7 +179,7 @@ class MainActivity : ComponentActivity() {
             nav.addView(quietButton(label){tab=page;draw()}.apply{contentDescription=label;setCompoundDrawablesWithIntrinsicBounds(null,NavIcon(icons.getValue(page),if(tab==page)Color.rgb(244,158,172) else Color.rgb(154,160,169)),null,null);setTextColor(if(tab==page)Color.rgb(244,158,172) else Color.rgb(154,160,169));textSize=10f;setPadding(0,dp(4),0,0)},LinearLayout.LayoutParams(0,dp(56),1f))
         };root.addView(nav);setContentView(root)
         status=null
-        when(tab){"About"->about();"Admin"->administration();"Rewards"->rewards();"Account"->account();"Subjects"->subjectLibrary();"Books"->bookLevels();"Quiz"->quizLibrary();"Progress"->progressScreen();else->home()}
+        when(tab){"About"->about();"Admin"->administration();"Rewards"->rewards();"Account"->account();"Subjects"->subjectLibrary();"Books"->bookLevels();"Quiz"->quizLibrary();"Progress"->progressScreen();"Bookmarks"->bookmarksScreen();"ReaderSettings"->readerSettings();else->home()}
         if(status==null){status=text("");area.addView(status)}
     }
     private fun splash(){
@@ -209,7 +210,7 @@ class MainActivity : ComponentActivity() {
         for(r in 0..1){val row=LinearLayout(this);for(c in 0..1){val i=r*2+c;row.addView(button(labels[i]){if(i==3){tab="Books";draw()}else openStudy(selected,listOf("vocab","grammar","kanji")[i])}.apply{textSize=if(compact)12f else 15f;gravity=Gravity.START or Gravity.CENTER_VERTICAL;setPadding(dp(14),dp(8),dp(8),dp(8));background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,intArrayOf(colors[i],0xff101c2c.toInt())).apply{cornerRadius=dp(14).toFloat()}},LinearLayout.LayoutParams(0,dp(if(compact)56 else 72),1f).apply{setMargins(if(c==1)dp(4) else 0,dp(7),if(c==0)dp(4) else 0,0)})};area.addView(row)}
         area.addView(quietButton(tr("Hiragana · Katakana · Numbers →","হিরাগানা · কাতাকানা · সংখ্যা →")){previewMode=false;openReader("basics/index.html",null)})
     }
-    private fun openStudy(level:String,kind:String){selected=level;previewMode=expiry(level)<=now();openReader("study.html?level=$level&section=$kind"+if(previewMode)"&preview=1" else "",level)}
+    private fun openStudy(level:String,kind:String,savedOnly:Boolean=false){selected=level;previewMode=expiry(level)<=now();openReader("study.html?level=$level&section=$kind"+(if(previewMode)"&preview=1" else "")+(if(savedOnly)"&saved=1" else ""),level)}
     private fun bookLevels(){
         add("JLPT Books",24f)
         val filters=LinearLayout(this);listOf("All","N5","N4","N3","N2").forEach{n->filters.addView(quietButton(n){if(n!="All")chooseSubject(n)},LinearLayout.LayoutParams(0,dp(38),1f))};area.addView(filters)
@@ -238,7 +239,7 @@ class MainActivity : ComponentActivity() {
     }
     private fun openPdfBook(level:String){
         if(level=="N1"){message(tr("N1 has text lessons; no owner PDF is supplied.","N1-এর পাঠ টেক্সটে আছে; মালিকের PDF দেওয়া হয়নি।"));return}
-        openReader("${level.lowercase()}.html?section=vocab&edition=pdf",level)
+        previewMode=false;openReader("pdf-reader.html?level=$level",level)
     }
     private fun rewards(){
         add(tr("Reward Center","ক্রেডিট সেন্টার"),30f);add(tr("Choose a level. Finish an optional ad to earn one verified credit for that level. Redeem only when you choose.","লেভেল বেছে নিন। ইচ্ছামতো একটি বিজ্ঞাপন সম্পূর্ণ দেখে সেই লেভেলের একটি যাচাইকৃত ক্রেডিট পান। নিজের পছন্দে সময় কিনুন।"))
@@ -301,62 +302,95 @@ class MainActivity : ComponentActivity() {
         })
     }
     private fun account(){
-        if(vault.read().isEmpty()){
-            val register=authMode=="register"
-            area.addView(ImageView(this).apply{setImageResource(R.drawable.ic_books);scaleType=ImageView.ScaleType.CENTER_CROP},LinearLayout.LayoutParams(dp(92),dp(92)).apply{gravity=Gravity.CENTER_HORIZONTAL;setMargins(0,dp(16),0,dp(12))})
-            area.addView(text("Nihongo\nPath Books",30f).apply{gravity=Gravity.CENTER;typeface=android.graphics.Typeface.SERIF})
-            add(tr("Learn Japanese Step by Step","ধাপে ধাপে জাপানি শিখুন"),15f)
-            add(tr("Keep your books, progress and credits together.","বই, পড়ার অগ্রগতি ও ক্রেডিট একসঙ্গে রাখুন।"),15f)
+        if(vault.read().isEmpty()){loginScreen();return}
+        run {
+            val profile=data.optJSONObject("user")?:JSONObject()
+            add(tr("My profile","আমার প্রোফাইল"),27f)
             card{
-                addView(text(if(register)tr("Create your account","আপনার অ্যাকাউন্ট খুলুন") else tr("Welcome back","আবার স্বাগতম"),25f))
-                status=text(tr("Create an account and start reading.","অ্যাকাউন্ট খুলে সরাসরি পড়া শুরু করুন।"),14f);addView(status)
-                val form=this
-                var invitationInput:EditText?=null
-                addView(button(tr("Continue with Google","Google দিয়ে চালিয়ে যান")){googleSignIn(invitationInput?.text?.toString()?.trim()?:"")}.apply{setTextColor(ink);backgroundTintList=null;background=android.graphics.drawable.GradientDrawable().apply{setColor(Color.rgb(30,40,53));cornerRadius=dp(12).toFloat();setStroke(dp(1),ink)}})
-                addView(text(tr("or use your email","অথবা ইমেইল ব্যবহার করুন"),13f).apply{gravity=Gravity.CENTER})
-                val email=authInput(form,tr("Email address","ইমেইল ঠিকানা")).apply{inputType=33;setText(signInEmail);if(Build.VERSION.SDK_INT>=26)setAutofillHints("emailAddress")}
-                val password=authInput(form,tr("Password","পাসওয়ার্ড"),true).apply{transformationMethod=android.text.method.PasswordTransformationMethod.getInstance();if(Build.VERSION.SDK_INT>=26)setAutofillHints(if(register)"newPassword" else "password")}
-                val show=CheckBox(this@MainActivity).apply{text=tr("Show password","পাসওয়ার্ড দেখুন");setTextColor(ink);setOnCheckedChangeListener{_,checked->password.transformationMethod=if(checked)null else android.text.method.PasswordTransformationMethod.getInstance();password.setSelection(password.text.length)}};addView(show)
-                val name=if(register)authInput(form,tr("Your name","আপনার নাম"))else null
-                val ref=if(register||!invitationPrefs.getString("ref","").isNullOrBlank())authInput(form,tr("Invitation code · optional","আমন্ত্রণের কোড · ঐচ্ছিক")).apply{setText(invitationPrefs.getString("ref",""))}else EditText(this@MainActivity)
-                invitationInput=ref
-                addView(text(tr("New accounts joining with a valid invitation receive 5 N5 credits once. No advertisement required.","সঠিক আমন্ত্রণ কোডে নতুন অ্যাকাউন্ট খুললে একবার ৫ N5 ক্রেডিট ফ্রি পাবেন। বিজ্ঞাপন লাগবে না।"),12f))
-                addView(button(if(register)tr("Create account","অ্যাকাউন্ট খুলুন")else tr("Sign in","লগইন")){
-                    val mail=email.text.toString().trim();val pass=password.text.toString();val code=ref.text.toString().trim()
-                    if(!android.util.Patterns.EMAIL_ADDRESS.matcher(mail).matches()){message(tr("Enter a valid email address.","সঠিক ইমেইল ঠিকানা দিন।"));return@button}
-                    if(pass.isEmpty()||(register&&pass.length<10)){message(tr("New accounts need at least 10 password characters.","নতুন অ্যাকাউন্টের পাসওয়ার্ডে অন্তত ১০ অক্ষর দিন।"));return@button}
-                    invitationPrefs.edit().putString("ref",code).apply()
-                    runAuth({api.request(if(register)"/auth/register"else "/auth/login","POST",JSONObject().put("email",mail).put("password",pass).put("name",name?.text?.toString()?:"").put("referralCode",code))}){result->
-                        password.text.clear();signInEmail=mail;acceptSession(result)
-                    }
-                })
-                addView(button(if(register)tr("Already registered? Sign in","অ্যাকাউন্ট আছে? লগইন করুন")else tr("New here? Create an account","নতুন? অ্যাকাউন্ট খুলুন")){authMode=if(register)"login"else "register";draw()})
-                if(!register)addView(button(tr("Forgot password? Contact support","পাসওয়ার্ড ভুলে গেছেন? সহায়তা নিন")){passwordSupport()})
+                val line=LinearLayout(this@MainActivity).apply{gravity=Gravity.CENTER_VERTICAL}
+                line.addView(text("◉",36f).apply{setTextColor(android.graphics.Color.rgb(238,155,171))},LinearLayout.LayoutParams(dp(52),-2))
+                val identity=LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(text(profile.optString("name").ifBlank{tr("Japanese learner","জাপানি শিক্ষার্থী")},20f));addView(text(profile.optString("email"),12f))}
+                line.addView(identity,LinearLayout.LayoutParams(0,-2,1f));line.addView(quietButton("✎"){editProfileName()});addView(line)
             }
-        }else{
-            add(tr("Your study account","আপনার স্টাডি অ্যাকাউন্ট"),28f)
-            card{addView(text(data.optJSONObject("user")?.optString("name")?.ifBlank{tr("Welcome","স্বাগতম")}?:tr("Welcome","স্বাগতম"),24f));addView(text(data.optJSONObject("user")?.optString("email")?:""))}
-            val name=field(tr("Display name","আপনার নাম"));name.setText(data.optJSONObject("user")?.optString("name")?:"");area.addView(button(tr("Save profile","নাম সংরক্ষণ")){async({api.request("/profile","PATCH",JSONObject().put("name",name.text.toString()))}){refresh()}})
-            card{addView(text(tr("Invite a friend","বন্ধুকে আমন্ত্রণ জানান"),23f));addView(text(tr("Your friend receives 5 N5 credits once after joining with your code.","আপনার কোড দিয়ে নতুন অ্যাকাউন্ট খুললে বন্ধু একবার ৫ N5 ক্রেডিট পাবেন।")));addView(button(tr("Show & share my invitation","আমার আমন্ত্রণ দেখুন ও শেয়ার করুন")){async({api.request("/referrals")}){r->val code=r.getString("code");val link="nihongopathbooks://join?ref="+android.net.Uri.encode(code);AlertDialog.Builder(this@MainActivity).setTitle(tr("Your invitation code","আপনার আমন্ত্রণ কোড")).setMessage(code+"\n\n"+tr("Open the link on Android with the app installed, or enter this code when joining.","Android-এ অ্যাপ install থাকলে লিংকটি খুলুন, অথবা অ্যাকাউন্ট খোলার সময় এই কোড দিন।")).setNegativeButton(tr("Close","বন্ধ"),null).setPositiveButton(tr("Share","শেয়ার")){_,_->startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).apply{type="text/plain";putExtra(android.content.Intent.EXTRA_TEXT,"Nihongo Path Books · 5 free N5 credits\n"+link+"\nCode: "+code)},tr("Invite a friend","বন্ধুকে আমন্ত্রণ")))}.show()}})}
-            area.addView(button(tr("Bookmarks & progress","বুকমার্ক ও অগ্রগতি")){openReader("progress.html",null)})
-            area.addView(button(tr("Reader settings","রিডারের সেটিংস")){openReader("settings.html",null)})
-            if(data.optJSONObject("user")?.optString("role")=="admin")area.addView(button(tr("Admin Dashboard","অ্যাডমিন ড্যাশবোর্ড")){tab="Admin";draw()})
-            area.addView(button(tr("Sync devices","সিঙ্ক করুন")){refresh()})
-            area.addView(button(tr("Sign out","লগআউট")){async({api.request("/auth/logout","POST")}){vault.clear();WebStorage.getInstance().deleteAllData();data=JSONObject();draw()}})
-            area.addView(button(tr("Sign out all devices","সব ডিভাইস থেকে লগআউট")){async({api.request("/auth/logout-all","POST")}){vault.clear();WebStorage.getInstance().deleteAllData();data=JSONObject();draw()}})
-            area.addView(button(tr("Delete Nihongo app data","Nihongo অ্যাপের data মুছুন")){AlertDialog.Builder(this).setTitle(tr("Delete app data permanently?","অ্যাপের data স্থায়ীভাবে মুছবেন? ")).setMessage(tr("Credits, study progress and access will be removed. Your shared sign-in identity remains. An anonymous referral-bonus digest is retained to prevent duplicate bonuses.","ক্রেডিট, পড়ার অগ্রগতি ও অনুমতি মুছে যাবে। Shared login থাকবে। বারবার bonus নেওয়া ঠেকাতে পরিচয়ের একটি একমুখী hash রাখা হয়।")).setNegativeButton(tr("Cancel","বাতিল"),null).setPositiveButton(tr("Delete","মুছুন")){_,_->async({api.request("/account","DELETE")}){vault.clear();WebStorage.getInstance().deleteAllData();data=JSONObject();draw()}}.show()})
+            card{
+                background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,intArrayOf(0xff653d60.toInt(),0xff182735.toInt())).apply{cornerRadius=dp(22).toFloat()}
+                addView(text(tr("A little gift for a friend","বন্ধুর জন্য ছোট্ট উপহার"),22f))
+                addView(text(tr("Invite a friend. A new account receives 5 N5 credits once.","আমন্ত্রণের কোডে নতুন অ্যাকাউন্ট খুললে বন্ধু একবার ৫ N5 ক্রেডিট পাবেন।"),13f))
+                addView(button(tr("Share my invitation  ↗","আমার আমন্ত্রণ শেয়ার করুন  ↗")){shareInvitation()})
+            }
+            card{
+                addView(text(tr("YOUR STUDY SPACE","আপনার পড়ার জায়গা"),11f).apply{setTextColor(Color.rgb(171,177,187))})
+                addView(profileRow("♡",tr("Bookmarks & progress","বুকমার্ক ও অগ্রগতি"),tr("Return to the words you saved","সংরক্ষিত শব্দ ও পড়ার অগ্রগতি")){tab="Bookmarks";draw()})
+                addView(profileRow("⚙",tr("Reading preferences","পড়ার পছন্দ"),tr("Text size and pronunciation speed","লেখার আকার ও উচ্চারণের গতি")){tab="ReaderSettings";draw()})
+            }
+            card{
+                addView(text(tr("ACCOUNT","অ্যাকাউন্ট"),11f).apply{setTextColor(Color.rgb(171,177,187))})
+                addView(quietButton(tr("Sign out","লগআউট")){signOut(false)})
+                addView(quietButton(tr("Security & account data","নিরাপত্তা ও অ্যাকাউন্টের তথ্য")){accountSecurity()})
+                if(profile.optString("role")=="admin")addView(quietButton(tr("Admin Dashboard","অ্যাডমিন ড্যাশবোর্ড")){tab="Admin";draw()})
+            }
         }
+    }
+    private fun profileRow(icon:String,title:String,subtitle:String,action:()->Unit):LinearLayout=LinearLayout(this).apply{
+        gravity=Gravity.CENTER_VERTICAL;setPadding(0,dp(10),0,dp(10));addView(text(icon,24f).apply{setTextColor(Color.rgb(240,160,176))},LinearLayout.LayoutParams(dp(40),-2))
+        addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(text(title,16f).apply{setPadding(0,0,0,dp(3))});addView(text(subtitle,11f).apply{setPadding(0,0,0,0);setTextColor(Color.rgb(166,174,185))})},LinearLayout.LayoutParams(0,-2,1f));addView(text("›",25f));isClickable=true;isFocusable=true;contentDescription=title;setOnClickListener{action()}
+    }
+    private fun editProfileName(){val input=EditText(this).apply{setSingleLine();setText(data.optJSONObject("user")?.optString("name")?:"")};AlertDialog.Builder(this).setTitle(tr("Your name","আপনার নাম")).setView(input).setNegativeButton(tr("Cancel","বাতিল"),null).setPositiveButton(tr("Save","রাখুন")){_,_->async({api.request("/profile","PATCH",JSONObject().put("name",input.text.toString().trim()))}){refresh()}}.show()}
+    private fun shareInvitation(){async({api.request("/referrals")}){r->val code=r.getString("code");val link="nihongopathbooks://join?ref="+android.net.Uri.encode(code);AlertDialog.Builder(this).setTitle(tr("Your invitation code","আপনার আমন্ত্রণ কোড")).setMessage(code+"\n\n"+tr("A new account receives 5 N5 credits with this code.","এই কোডে নতুন অ্যাকাউন্ট খুললে একবার ৫ N5 ক্রেডিট পাওয়া যাবে।")).setNegativeButton(tr("Close","বন্ধ"),null).setPositiveButton(tr("Share","শেয়ার")){_,_->startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).apply{type="text/plain";putExtra(android.content.Intent.EXTRA_TEXT,"Nihongo Path Books · 5 free N5 credits\n"+link+"\nCode: "+code)},tr("Invite a friend","বন্ধুকে আমন্ত্রণ")))}.show()}}
+    private fun signOut(all:Boolean){async({api.request(if(all)"/auth/logout-all" else "/auth/logout","POST")}){vault.clear();WebStorage.getInstance().deleteAllData();data=JSONObject();tab="Home";draw()}}
+    private fun accountSecurity(){AlertDialog.Builder(this).setTitle(tr("Account security","অ্যাকাউন্টের নিরাপত্তা")).setItems(arrayOf(tr("Sign out all devices","সব ডিভাইস থেকে লগআউট"),tr("Delete Nihongo app data","Nihongo অ্যাপের তথ্য মুছুন"))){_,i->if(i==0)signOut(true)else AlertDialog.Builder(this).setTitle(tr("Delete app data permanently?","অ্যাপের তথ্য স্থায়ীভাবে মুছবেন? ")).setMessage(tr("Credits, progress and access will be removed. Your shared sign-in identity remains.","ক্রেডিট, পড়ার অগ্রগতি ও অনুমতি মুছে যাবে। Shared login থাকবে।")).setNegativeButton(tr("Cancel","বাতিল"),null).setPositiveButton(tr("Delete","মুছুন")){_,_->async({api.request("/account","DELETE")}){vault.clear();WebStorage.getInstance().deleteAllData();data=JSONObject();tab="Home";draw()}}.show()}.show()}
+    private fun bookmarksScreen(){add(tr("Bookmarks & progress","বুকমার্ক ও অগ্রগতি"),25f);val study=data.optJSONObject("studyState")?:JSONObject();add(tr("${study.optJSONArray("saved")?.length()?:0} bookmarks · ${study.optJSONArray("learned")?.length()?:0} learned","${study.optJSONArray("saved")?.length()?:0}টি বুকমার্ক · ${study.optJSONArray("learned")?.length()?:0}টি শেখা হয়েছে"),14f);Access.levels.forEach{level->card{addView(text(level,22f));listOf("vocab","grammar","kanji").forEachIndexed{i,kind->addView(quietButton(listOf(tr("Saved vocabulary","সংরক্ষিত শব্দ"),tr("Saved grammar","সংরক্ষিত ব্যাকরণ"),tr("Saved kanji","সংরক্ষিত কানজি"))[i]+"  →"){openStudy(level,kind,true)})}}}}
+    private fun readerSettings(){add(tr("Reading preferences","পড়ার পছন্দ"),25f);card{addView(text(tr("Text size","লেখার আকার"),20f));listOf(100,115,130).forEachIndexed{i,size->addView(button(listOf(tr("Standard","সাধারণ"),tr("Large","বড়"),tr("Extra large","আরও বড়"))[i]+if(getPreferences(MODE_PRIVATE).getInt("reader_zoom",100)==size)"  ✓" else ""){getPreferences(MODE_PRIVATE).edit().putInt("reader_zoom",size).apply();draw()})}};card{addView(text(tr("Pronunciation speed","উচ্চারণের গতি"),20f));listOf(0.75f,1f).forEachIndexed{i,speed->addView(quietButton(listOf(tr("Slow and clear","ধীরে ও স্পষ্ট"),tr("Natural speed","স্বাভাবিক গতি"))[i]){getPreferences(MODE_PRIVATE).edit().putFloat("speech_rate",speed).apply();tts?.setSpeechRate(speed);message(tr("Saved","সংরক্ষিত"))})}}}
+    private fun loginScreen(){
+        val register=authMode=="register"
+        root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;background=LoginBlossoms();setPadding(dp(24),dp(24),dp(24),dp(20))}
+        root.addView(quietButton("←"){tab="Home";draw()}.apply{contentDescription=tr("Back to home","হোমে ফিরুন")},LinearLayout.LayoutParams(dp(38),dp(32)))
+        val scroll=ScrollView(this).apply{isFillViewport=true};area=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER_HORIZONTAL};scroll.addView(area);root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f));status=null
+        area.addView(ImageView(this).apply{setImageResource(R.drawable.login_emblem)},LinearLayout.LayoutParams(dp(82),dp(82)).apply{gravity=Gravity.CENTER_HORIZONTAL;setMargins(0,dp(5),0,dp(8))})
+        area.addView(text("Nihongo\nPath Books",28f).apply{gravity=Gravity.CENTER;typeface=android.graphics.Typeface.create("serif",android.graphics.Typeface.BOLD);setPadding(0,0,0,0)})
+        area.addView(text(tr("Learn Japanese Step by Step","ধাপে ধাপে জাপানি শিখুন"),12f).apply{gravity=Gravity.CENTER;setTextColor(Color.rgb(185,181,176));setPadding(0,dp(9),0,dp(22))})
+        val form=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL};area.addView(form,LinearLayout.LayoutParams(-1,-2))
+        val email=loginField(form,tr("Email address","ইমেইল ঠিকানা"),"♙").apply{inputType=33;setText(signInEmail);if(Build.VERSION.SDK_INT>=26)setAutofillHints("emailAddress")}
+        val password=loginField(form,tr("Password","পাসওয়ার্ড"),"♧",true).apply{transformationMethod=android.text.method.PasswordTransformationMethod.getInstance();if(Build.VERSION.SDK_INT>=26)setAutofillHints(if(register)"newPassword" else "password")}
+        val name=if(register)loginField(form,tr("Your name","আপনার নাম"),"♙")else null
+        val code=if(register||!invitationPrefs.getString("ref","").isNullOrBlank())loginField(form,tr("Invitation code · optional","আমন্ত্রণ কোড · ঐচ্ছিক"),"↗").apply{setText(invitationPrefs.getString("ref",""))}else null
+        form.addView(button(if(register)tr("Create account","অ্যাকাউন্ট খুলুন")else tr("Login","লগইন")){
+            val mail=email.text.toString().trim();val pass=password.text.toString();val ref=code?.text?.toString()?.trim()?:invitationPrefs.getString("ref","").orEmpty()
+            if(!android.util.Patterns.EMAIL_ADDRESS.matcher(mail).matches()){message(tr("Enter a valid email address.","সঠিক ইমেইল ঠিকানা দিন।"));return@button}
+            if(pass.isEmpty()||(register&&pass.length<10)){message(tr("New accounts need at least 10 password characters.","নতুন অ্যাকাউন্টের পাসওয়ার্ডে অন্তত ১০ অক্ষর দিন।"));return@button}
+            invitationPrefs.edit().putString("ref",ref).apply()
+            runAuth({api.request(if(register)"/auth/register"else "/auth/login","POST",JSONObject().put("email",mail).put("password",pass).put("name",name?.text?.toString()?:"").put("referralCode",ref))}){result->password.text.clear();signInEmail=mail;acceptSession(result)}
+        }.apply{layoutParams=LinearLayout.LayoutParams(-1,dp(46)).apply{setMargins(0,dp(8),0,dp(9))};textSize=14f})
+        if(!register)form.addView(quietButton(tr("Forgot password?","পাসওয়ার্ড ভুলে গেছেন?")){passwordSupport()}.apply{setTextColor(Color.rgb(242,175,182));gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,dp(36)))
+        val separator=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,dp(12),0,dp(12))};for(i in 0..2){if(i==1)separator.addView(text("OR",11f).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(dp(42),-2))else separator.addView(android.view.View(this).apply{setBackgroundColor(Color.rgb(50,54,62))},LinearLayout.LayoutParams(0,dp(1),1f))};form.addView(separator)
+        form.addView(button(tr("G   Continue with Google","G   Google দিয়ে চালিয়ে যান")){googleSignIn(code?.text?.toString()?.trim()?:invitationPrefs.getString("ref","").orEmpty())}.apply{setTextColor(Color.rgb(22,25,30));textSize=13f;background=android.graphics.drawable.GradientDrawable().apply{setColor(Color.rgb(255,251,244));cornerRadius=dp(23).toFloat()};layoutParams=LinearLayout.LayoutParams(-1,dp(46)).apply{setMargins(0,dp(3),0,dp(15))}})
+        form.addView(quietButton(if(register)tr("Already registered? Sign in","অ্যাকাউন্ট আছে? লগইন করুন")else tr("Don't have an account? Sign Up","অ্যাকাউন্ট নেই? Sign Up")){authMode=if(register)"login"else "register";draw()}.apply{setTextColor(Color.rgb(242,175,182));gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,dp(42)))
+        if(register)form.addView(text(tr("Valid invitations give a new account 5 N5 credits once.","সঠিক আমন্ত্রণ কোডে নতুন অ্যাকাউন্ট একবার ৫ N5 ক্রেডিট পাবে।"),11f))
+        status=text("",12f).apply{gravity=Gravity.CENTER};form.addView(status);setContentView(root)
+    }
+    private fun loginField(parent:LinearLayout,label:String,icon:String,secret:Boolean=false):EditText{
+        val row=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(dp(12),0,dp(10),0);background=android.graphics.drawable.GradientDrawable().apply{setColor(0x33151d29);setStroke(dp(1),Color.rgb(65,70,80));cornerRadius=dp(11).toFloat()};layoutParams=LinearLayout.LayoutParams(-1,dp(46)).apply{setMargins(0,0,0,dp(10))}}
+        row.addView(text(icon,20f),LinearLayout.LayoutParams(dp(29),-2));val input=EditText(this).apply{hint=label;contentDescription=label;setSingleLine();inputType=if(secret)129 else 1;setTextColor(ink);setHintTextColor(Color.rgb(176,178,183));textSize=13f;background=null;setPadding(0,0,0,0)};row.addView(input,LinearLayout.LayoutParams(0,-1,1f))
+        if(secret)row.addView(quietButton("◉"){val show=input.transformationMethod!=null;input.transformationMethod=if(show)null else android.text.method.PasswordTransformationMethod.getInstance();input.setSelection(input.text.length)}.apply{contentDescription=tr("Show or hide password","পাসওয়ার্ড দেখুন বা লুকান")},LinearLayout.LayoutParams(dp(30),-1));parent.addView(row);return input
+    }
+    private inner class LoginBlossoms:android.graphics.drawable.Drawable(){
+        override fun draw(c:android.graphics.Canvas){c.drawColor(Color.rgb(5,10,17));val p=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);val w=bounds.width().toFloat();val density=resources.displayMetrics.density
+            fun flower(x:Float,y:Float,r:Float){c.save();c.translate(x,y);p.color=Color.rgb(224,115,142);for(i in 0..4){c.save();c.rotate(i*72f);c.drawOval(-r*.34f,-r,r*.34f,0f,p);c.restore()};p.color=Color.rgb(248,189,193);c.drawCircle(0f,0f,r*.16f,p);c.restore()}
+            listOf(floatArrayOf(10f,18f,11f),floatArrayOf(40f,5f,7f),floatArrayOf(25f,69f,7f),floatArrayOf(8f,115f,10f)).forEach{flower(it[0]*density,it[1]*density,it[2]*density)}
+            listOf(floatArrayOf(10f,45f,9f),floatArrayOf(36f,20f,7f),floatArrayOf(14f,112f,8f),floatArrayOf(28f,164f,6f)).forEach{flower(w-it[0]*density,it[1]*density,it[2]*density)}
+        };override fun setAlpha(alpha:Int){};override fun setColorFilter(filter:android.graphics.ColorFilter?){};@Deprecated("Deprecated in Java")override fun getOpacity()=android.graphics.PixelFormat.OPAQUE
     }
     @Suppress("SetJavaScriptEnabled")
     private fun openReader(route:String,level:String?){
+        if(!Access.readerScreen(route)){tab="Books";draw();return}
         if(level=="N1"||(route.startsWith("listening")&&level!="N5")){message("Unavailable in this release");return}
         if(!previewMode&&level!=null&&expiry(level)<=now()){tab="Rewards";draw();return}
         readerLevel=level;readerExpiry=level?.let{expiry(it)}?:Long.MAX_VALUE
         val container=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(0,dp(28),0,0);setBackgroundColor(paper)}
-        container.addView(button(tr("← Library","← বইঘর")){closeReader()})
+        container.addView(quietButton(tr("← Library","← বইঘর")){closeReader()},LinearLayout.LayoutParams(-1,dp(44)))
         val loader=WebViewAssetLoader.Builder().addPathHandler("/assets/",WebViewAssetLoader.AssetsPathHandler(this)).build()
         val view=WebView(this);web=view
-        view.settings.apply{javaScriptEnabled=true;domStorageEnabled=true;allowFileAccess=false;allowContentAccess=false;cacheMode=WebSettings.LOAD_NO_CACHE;setSupportMultipleWindows(false);mixedContentMode=WebSettings.MIXED_CONTENT_NEVER_ALLOW;mediaPlaybackRequiresUserGesture=true}
+        view.settings.apply{javaScriptEnabled=true;textZoom=getPreferences(MODE_PRIVATE).getInt("reader_zoom",100);domStorageEnabled=true;allowFileAccess=false;allowContentAccess=false;cacheMode=WebSettings.LOAD_NO_CACHE;setSupportMultipleWindows(false);mixedContentMode=WebSettings.MIXED_CONTENT_NEVER_ALLOW;mediaPlaybackRequiresUserGesture=true}
         WebView.setWebContentsDebuggingEnabled(false)
         view.addJavascriptInterface(object{
             @JavascriptInterface fun saveProgress(value:String){
@@ -367,23 +401,24 @@ class MainActivity : ComponentActivity() {
                     syncWorker.execute{if(credential==vault.read())runCatching{api.request("/study-state","PUT",JSONObject().put("state",JSONObject(value)))}}
                 }
             }
-            @JavascriptInterface fun speak(text:String){runOnUiThread{tts?.speak(text.take(2000),TextToSpeech.QUEUE_FLUSH,null,"study")}}
+            @JavascriptInterface fun speak(text:String){runOnUiThread{tts?.setSpeechRate(getPreferences(MODE_PRIVATE).getFloat("speech_rate",1f));tts?.speak(text.take(2000),TextToSpeech.QUEUE_FLUSH,null,"study")}}
             @JavascriptInterface fun stopSpeech(){tts?.stop()}
+            @JavascriptInterface fun backToLibrary(){runOnUiThread{closeReader();tab="Books";draw()}}
             @JavascriptInterface fun unlock(){runOnUiThread{closeReader();tab=if(vault.read().isEmpty())"Account" else "Rewards";draw()}}
         },"StudyNative")
         view.webViewClient=object:WebViewClient(){
             override fun shouldOverrideUrlLoading(v:WebView,r:WebResourceRequest):Boolean {
                 if(!Access.internal(r.url.toString())){message(tr("This link is outside the study library.","এই লিংকটি স্টাডি লাইব্রেরির বাইরে।"));return true}
-                val p=r.url.path?:""
-                val next=Regex("/n([1-5])\\.html$").find(p)?.let{"N"+it.groupValues[1]}
-                if(next!=null&&next!=readerLevel){closeReader();chooseSubject(next);return true}
-                if(p.endsWith("listening.html")){val n=r.url.getQueryParameter("level")?:"N5";if(n!=readerLevel){closeReader();chooseSubject(n);return true}}
+                val relative=r.url.path.orEmpty().removePrefix("/assets/reader/")
+                if(relative.endsWith(".html")&&!Access.readerScreen(relative)){closeReader();tab="Books";draw();return true}
+                if(relative=="listening.html"&&r.url.getQueryParameter("level")!="N5")return true
                 return false
             }
             override fun shouldInterceptRequest(v:WebView,r:WebResourceRequest):WebResourceResponse {
                 fun denied(code:Int=403)=WebResourceResponse("text/plain","UTF-8",code,if(code==403)"Forbidden" else "Unavailable",mapOf("Cache-Control" to "no-store"),ByteArrayInputStream("Access unavailable. Return to Reward Center and refresh.".toByteArray()))
                 if(!Access.internal(r.url.toString()))return denied()
                 val path=r.url.path!!.removePrefix("/assets/reader/")
+                if(path.endsWith(".html")&&!Access.readerScreen(path))return denied()
                 if(Regex("(?:^|/)(?:lessons-|owner-|listening-|jlpt-)?n1(?:[./-])").containsMatchIn(path)||Regex("^data/listening-n[2-4]\\.json$").matches(path)||Regex("^audio/(?:listening/)?n[1-4]/").containsMatchIn(path))return denied()
                 val protected=path.startsWith("pdfs/")||path.startsWith("audio/")||Regex("^data/(?:lessons-|owner-|listening-)?n[1-5]\\.json$").matches(path)||path=="data/extra.json"
                 if(protected&&previewMode){
@@ -391,23 +426,21 @@ class MainActivity : ComponentActivity() {
                     return try{WebResourceResponse("application/json","UTF-8",assets.open("reader/previews/"+path.substringAfterLast('/')))}catch(_:Exception){denied()}
                 }
                 if(protected){return try{val (type,bytes)=api.content(path);WebResourceResponse(type.substringBefore(';'),null,200,"OK",mapOf("Cache-Control" to "no-store"),ByteArrayInputStream(bytes))}catch(_:Exception){denied(503)}}
+                if(path.endsWith(".mjs"))return try{WebResourceResponse("text/javascript","UTF-8",assets.open("reader/"+path))}catch(_:Exception){denied()}
                 return loader.shouldInterceptRequest(r.url)?:denied()
             }
             override fun onPageFinished(v:WebView,url:String){
-                if(url.contains("/study.html")){
+                if(url.contains("/study.html")||url.contains("/pdf-reader.html")){
                     val restored=data.optJSONObject("studyState")
-                    if(restored!=null&&restored.length()>0)v.evaluateJavascript("Object.assign(state,JSON.parse(${JSONObject.quote(restored.toString())}));state.saved??=[];localStorage.setItem('nihongo-path',JSON.stringify(state));if(data.vocab)render();",null)
+                    if(restored!=null&&restored.length()>0)v.evaluateJavascript("Object.assign(state,JSON.parse(${JSONObject.quote(restored.toString())}));state.saved??=[];localStorage.setItem('nihongo-path',JSON.stringify(state));if(typeof data!=='undefined'&&data.vocab&&typeof render==='function')render();",null)
                     return
                 }
-                val synced=data.optJSONObject("studyState")
-                val initial=if(synced!=null&&synced.length()>0)synced.toString() else "{}"
-                v.evaluateJavascript("if(typeof state!=='undefined'){const requestedLevel=state.level;Object.assign(state,JSON.parse(${JSONObject.quote(initial)}));state.level=requestedLevel;if(state.positions&&typeof readerIndex!=='undefined')readerIndex=state.positions[state.level+':'+kind]||0;}",null)
-                v.evaluateJavascript("localStorage.setItem('nihongo-path',JSON.stringify({...state,lang:'${if(bn)"bn" else "en"}'}));if(typeof state!=='undefined'){state.lang='${if(bn)"bn" else "en"}';persist();render();}",null)}
+            }
         }
         container.addView(view,LinearLayout.LayoutParams(-1,0,1f));setContentView(container);view.loadUrl("https://appassets.androidplatform.net/assets/reader/$route")
     }
     private fun closeReader(){web?.apply{stopLoading();loadUrl("about:blank");removeJavascriptInterface("StudyNative");clearCache(true);destroy()};web=null;readerLevel=null;previewMode=false;tts?.stop();draw()}
     override fun onPause(){web?.onPause();tts?.stop();super.onPause()}
-    override fun onResume(){super.onResume();web?.onResume();if(web!=null&&!previewMode&&readerLevel!=null)refresh{if(expiry(readerLevel!!)<=now())closeReader()}}
+    override fun onResume(){super.onResume();web?.onResume();if(web==null&&vault.read().isNotEmpty())refresh();if(web!=null&&!previewMode&&readerLevel!=null)refresh{if(expiry(readerLevel!!)<=now())closeReader()}}
     override fun onDestroy(){handler.removeCallbacksAndMessages(null);web?.destroy();tts?.shutdown();worker.shutdownNow();syncWorker.shutdownNow();super.onDestroy()}
 }
