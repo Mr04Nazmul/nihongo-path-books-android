@@ -33,7 +33,9 @@ class ProtectionTest {
    scenario.onActivity{a->MainActivity::class.java.getDeclaredMethod("openStudy",String::class.java,String::class.java,Boolean::class.javaPrimitiveType).apply{isAccessible=true}.invoke(a,"N5","vocab",false)}
    var count=0
    for(attempt in 0 until 24){val latch=java.util.concurrent.CountDownLatch(1);scenario.onActivity{a->val view=MainActivity::class.java.getDeclaredField("web").apply{isAccessible=true}.get(a) as android.webkit.WebView;view.evaluateJavascript("document.querySelectorAll('article.row').length"){value->count=value.toIntOrNull()?:0;latch.countDown()}};latch.await(2,java.util.concurrent.TimeUnit.SECONDS);if(count==5)break;Thread.sleep(250)}
-   assertEquals("Exactly five vocabulary entries should render offline without login",5,count)
+   var diagnostic="";val diagnosticReady=java.util.concurrent.CountDownLatch(1)
+   scenario.onActivity{a->val view=MainActivity::class.java.getDeclaredField("web").apply{isAccessible=true}.get(a) as android.webkit.WebView;view.evaluateJavascript("JSON.stringify({ua:navigator.userAgent,errors:window.readerErrors||[],body:document.body.innerText.slice(0,250)})"){value->diagnostic=value;diagnosticReady.countDown()}};diagnosticReady.await(2,java.util.concurrent.TimeUnit.SECONDS)
+   assertEquals("Exactly five vocabulary entries should render offline without login: "+diagnostic,5,count)
   }
  }
  @Test fun secureWindowAndLaunch(){ActivityScenario.launch(MainActivity::class.java).use{scenario->scenario.onActivity{activity->assertTrue(activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0);assertNotNull(activity.findViewById<android.view.View>(android.R.id.content))}}}

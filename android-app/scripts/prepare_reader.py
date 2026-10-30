@@ -46,7 +46,7 @@ for html in out.glob('*.html'):
   result=subprocess.run(['node',str(root/'android-app/scripts/compile_reader_scripts.mjs')],input=json.dumps(source_scripts),capture_output=True,text=True,check=True)
   compiled=iter(json.loads(result.stdout))
   markup=script_pattern.sub(lambda m:m.group(1)+(next(compiled) if m.group(2).strip() else m.group(2))+m.group(3),markup)
- markup=markup.replace('<script','<script src="compat.js"></script><script',1)
+ markup=markup.replace('<script','<script>window.readerErrors=[];window.onerror=function(message,source,line){window.readerErrors.push(String(message)+" @"+line);};</script><script src="compat.js"></script><script',1)
  html.write_text(markup)
 # Listening is an app-contained controller rather than the website application.
 result=subprocess.run(['node',str(root/'android-app/scripts/compile_reader_scripts.mjs')],input=json.dumps([(out/'listening.js').read_text()]),capture_output=True,text=True,check=True)
