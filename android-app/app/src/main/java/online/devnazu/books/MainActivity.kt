@@ -52,8 +52,38 @@ class MainActivity : ComponentActivity() {
     private fun appearanceJson()=JSONObject().put("dark",dark).put("accent",String.format("#%06X",0xffffff and accent)).toString()
     private fun systemBars(){window.statusBarColor=paper;window.navigationBarColor=paper;window.decorView.systemUiVisibility=(if(!dark&&Build.VERSION.SDK_INT>=23)View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR else 0) or (if(!dark&&Build.VERSION.SDK_INT>=26)View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR else 0)}
     private fun themedDialog()=AlertDialog.Builder(android.view.ContextThemeWrapper(this,if(dark)android.R.style.Theme_Material_Dialog_Alert else android.R.style.Theme_Material_Light_Dialog_Alert))
-    private fun appearanceDialog(){AlertDialog.Builder(android.view.ContextThemeWrapper(this,if(dark)android.R.style.Theme_Material_Dialog_Alert else android.R.style.Theme_Material_Light_Dialog_Alert)).setTitle(tr("Theme & colour","থিম ও রং")).setItems(arrayOf(tr("Dark","ডার্ক"),tr("Light","লাইট"),tr("Sakura pink","সাকুরা গোলাপি"),tr("Ocean blue","সমুদ্র নীল"),tr("Forest green","সবুজ"))){_,i->getPreferences(MODE_PRIVATE).edit().apply{if(i<2)putString("appearance",if(i==0)"dark"else"light")else putString("accent",listOf("sakura","ocean","forest")[i-2])}.apply();applyAppearance()} .show()}
-    private fun applyAppearance(){systemBars();if(web!=null){readerContainer?.setBackgroundColor(paper);readerToolbar?.setBackgroundColor(paper);readerToolbar?.let{row->for(j in 0 until row.childCount)(row.getChildAt(j) as? TextView)?.setTextColor(ink)};web?.setBackgroundColor(paper);web?.evaluateJavascript("window.applyAppAppearance("+appearanceJson()+")",null)}else draw()}
+    private var appearanceWindow:android.app.Dialog?=null
+    private fun appearanceDialog(){
+        appearanceWindow?.dismiss()
+        val dialog=android.app.Dialog(this);appearanceWindow=dialog
+        val backdrop=FrameLayout(this).apply{setPadding(dp(18),dp(30),dp(18),dp(22));setOnClickListener{dialog.dismiss()}}
+        val decor=window.decorView
+        val frost=runCatching{android.graphics.Bitmap.createBitmap(maxOf(1,decor.width/14),maxOf(1,decor.height/14),android.graphics.Bitmap.Config.ARGB_8888).also{bitmap->val canvas=android.graphics.Canvas(bitmap);canvas.scale(1f/14,1f/14);decor.draw(canvas)}}.getOrNull()
+        if(frost!=null)backdrop.background=android.graphics.drawable.BitmapDrawable(resources,frost).apply{isFilterBitmap=true;gravity=Gravity.FILL}
+        backdrop.foreground=android.graphics.drawable.ColorDrawable(if(dark)0x66101b2d else 0x33ffffff)
+        val sheet=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(22),dp(20),dp(22),dp(20));isClickable=true;background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,if(dark)intArrayOf(0xee26364c.toInt(),0xeb101925.toInt())else intArrayOf(0xf5ffffff.toInt(),0xedebf0f8.toInt())).apply{cornerRadius=dp(28).toFloat();setStroke(dp(1),if(dark)0x99d7e6ff.toInt()else Color.WHITE)};elevation=dp(18).toFloat()}
+        sheet.addView(text(tr("Theme & colour","থিম ও রং"),23f));sheet.addView(text(tr("Choose the atmosphere of your study space","আপনার পড়ার জায়গা নিজের মতো সাজান"),12f).apply{setTextColor(muted)})
+        fun choose(mode:String?=null,colour:String?=null){getPreferences(MODE_PRIVATE).edit().apply{if(mode!=null)putString("appearance",mode);if(colour!=null)putString("accent",colour)}.apply();dialog.dismiss();applyAppearance()}
+        val modes=LinearLayout(this)
+        listOf("dark","light").forEach{mode->modes.addView(button((if(mode=="dark")"☾  "+tr("Dark","ডার্ক")else"☀  "+tr("Light","লাইট"))+(if((mode=="dark")==dark)"  ✓"else"")){choose(mode=mode)}.apply{setTextColor(if(mode=="dark")Color.WHITE else Color.rgb(31,39,49));background=android.graphics.drawable.GradientDrawable().apply{setColor(if(mode=="dark")0xff152031.toInt()else 0xfff7f5f1.toInt());setStroke(dp(2),if((mode=="dark")==dark)accentInk else border);cornerRadius=dp(18).toFloat()}},LinearLayout.LayoutParams(0,dp(60),1f).apply{setMargins(dp(4),dp(15),dp(4),dp(14))})};sheet.addView(modes)
+        sheet.addView(text(tr("Accent colour","পছন্দের রং"),13f));listOf("sakura","ocean","forest").forEachIndexed{i,colour->sheet.addView(button(listOf(tr("Sakura pink","সাকুরা গোলাপি"),tr("Ocean blue","সমুদ্র নীল"),tr("Forest green","বন সবুজ"))[i]+if(getPreferences(MODE_PRIVATE).getString("accent","sakura")==colour)"  ✓"else""){choose(colour=colour)}.apply{background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,intArrayOf(listOf(0xffad3c58.toInt(),0xff1c6aa1.toInt(),0xff1a755b.toInt())[i],if(dark)0xff253247.toInt()else listOf(0xff85334f.toInt(),0xff215882.toInt(),0xff21624f.toInt())[i])).apply{cornerRadius=dp(17).toFloat();setStroke(dp(1),0x55ffffff)}})}
+        sheet.addView(quietButton(tr("Close","বন্ধ করুন")){dialog.dismiss()}.apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,dp(44)))
+        backdrop.addView(sheet,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));dialog.setContentView(backdrop)
+        dialog.window?.apply{setBackgroundDrawableResource(android.R.color.transparent);addFlags(WindowManager.LayoutParams.FLAG_SECURE);clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);statusBarColor=paper;navigationBarColor=paper}
+        dialog.show();dialog.window?.setLayout(-1,-1)
+        dialog.setOnDismissListener{appearanceWindow=null;backdrop.background=null;frost?.recycle()}
+    }
+    private fun themeReveal():android.graphics.drawable.Drawable?{
+        val decor=window.decorView
+        if(decor.width<=0||decor.height<=0)return null
+        val bitmap=runCatching{android.graphics.Bitmap.createBitmap(decor.width,decor.height,android.graphics.Bitmap.Config.ARGB_8888).also{decor.draw(android.graphics.Canvas(it))}}.getOrNull()?:return null
+        return object:android.graphics.drawable.Drawable(){var radius=0f;val paint=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);val path=android.graphics.Path()
+            init{val reveal=this;setBounds(0,0,decor.width,decor.height);decor.overlay.add(this);android.animation.ValueAnimator.ofFloat(0f,kotlin.math.hypot(decor.width.toDouble(),decor.height.toDouble()).toFloat()).apply{duration=450;interpolator=android.view.animation.DecelerateInterpolator();addUpdateListener{radius=it.animatedValue as Float;invalidateSelf()};addListener(object:android.animation.AnimatorListenerAdapter(){override fun onAnimationEnd(animation:android.animation.Animator){decor.overlay.remove(reveal);bitmap.recycle()}});start()}}
+            override fun draw(canvas:android.graphics.Canvas){canvas.save();path.reset();path.addCircle(bounds.right-dp(35).toFloat(),dp(65).toFloat(),radius,android.graphics.Path.Direction.CW);@Suppress("DEPRECATION") canvas.clipPath(path,android.graphics.Region.Op.DIFFERENCE);canvas.drawBitmap(bitmap,0f,0f,paint);canvas.restore()}
+            override fun setAlpha(value:Int){};override fun setColorFilter(value:android.graphics.ColorFilter?){};@Deprecated("Deprecated in Java") override fun getOpacity()=android.graphics.PixelFormat.TRANSLUCENT
+        }
+    }
+    private fun applyAppearance(){themeReveal();systemBars();if(web!=null){readerContainer?.setBackgroundColor(paper);readerToolbar?.setBackgroundColor(paper);readerToolbar?.let{row->for(j in 0 until row.childCount)(row.getChildAt(j) as? TextView)?.setTextColor(ink)};web?.setBackgroundColor(paper);web?.evaluateJavascript("window.applyAppAppearance("+appearanceJson()+")",null)}else draw()}
     private var readerContainer:LinearLayout?=null
     private var readerToolbar:LinearLayout?=null
     private var previewMode=false
@@ -223,7 +253,9 @@ class MainActivity : ComponentActivity() {
         hero.addView(text("毎日の一歩が、未来をつくる。\n"+tr("Small steps today. A brighter future tomorrow.","প্রতিদিন একটু করে, আগামীর পথে।"),13f).apply{setPadding(dp(14),dp(if(compact)42 else 96),dp(14),dp(10));setTextColor(Color.WHITE);setShadowLayer(8f,0f,2f,Color.BLACK)},FrameLayout.LayoutParams(-1,-1));area.addView(hero)
         val labels=listOf("Vocabulary\n単語","Grammar\n文法","Kanji\n漢字","Books\n教科書");val colors=listOf(0xffb45374.toInt(),0xff286a9b.toInt(),0xff148665.toInt(),0xffad6c35.toInt())
         for(r in 0..1){val row=LinearLayout(this);for(c in 0..1){val i=r*2+c;row.addView(button(labels[i]){if(i==3){tab="Books";draw()}else openStudy(selected,listOf("vocab","grammar","kanji")[i])}.apply{textSize=if(compact)12f else 15f;gravity=Gravity.START or Gravity.CENTER_VERTICAL;setPadding(dp(14),dp(8),dp(8),dp(8));background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,intArrayOf(colors[i],0xff101c2c.toInt())).apply{cornerRadius=dp(14).toFloat()}},LinearLayout.LayoutParams(0,dp(if(compact)56 else 72),1f).apply{setMargins(if(c==1)dp(4) else 0,dp(7),if(c==0)dp(4) else 0,0)})};area.addView(row)}
-        area.addView(quietButton(tr("Hiragana · Katakana · Numbers →","হিরাগানা · কাতাকানা · সংখ্যা →")){previewMode=false;openReader("basics/index.html",null)})
+        add(tr("Start with the basics","শুরু হোক বেসিক দিয়ে"),17f)
+        val basicsRow=LinearLayout(this)
+        listOf("hiragana","katakana","numbers").forEachIndexed{i,section->basicsRow.addView(button(listOf("あ\n"+tr("Hiragana","হিরাগানা"),"ア\n"+tr("Katakana","কাতাকানা"),"１２\n"+tr("Numbers","সংখ্যা"))[i]){previewMode=false;openReader("basics/index.html#$section",null)}.apply{contentDescription="basic-$section";textSize=13f;setTextColor(ink);background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,if(dark)intArrayOf(0xff26364a.toInt(),surface)else intArrayOf(0xffe9eff7.toInt(),surface)).apply{cornerRadius=dp(18).toFloat();setStroke(dp(1),border)}},LinearLayout.LayoutParams(0,dp(88),1f).apply{setMargins(dp(3),dp(5),dp(3),dp(10))})};area.addView(basicsRow)
     }
     private fun openStudy(level:String,kind:String,savedOnly:Boolean=false){selected=level;previewMode=expiry(level)<=now();openReader("study.html?level=$level&section=$kind"+(if(previewMode)"&preview=1" else "")+(if(savedOnly)"&saved=1" else ""),level)}
     private fun bookLevels(){
@@ -462,5 +494,5 @@ class MainActivity : ComponentActivity() {
     private fun closeReader(){web?.apply{stopLoading();loadUrl("about:blank");removeJavascriptInterface("StudyNative");clearCache(true);destroy()};web=null;readerContainer=null;readerToolbar=null;readerLevel=null;previewMode=false;tts?.stop();draw()}
     override fun onPause(){web?.onPause();tts?.stop();super.onPause()}
     override fun onResume(){super.onResume();web?.onResume();if(web==null&&vault.read().isNotEmpty())refresh();if(web!=null&&!previewMode&&readerLevel!=null)refresh{if(expiry(readerLevel!!)<=now())closeReader()}}
-    override fun onDestroy(){handler.removeCallbacksAndMessages(null);web?.destroy();tts?.shutdown();worker.shutdownNow();syncWorker.shutdownNow();super.onDestroy()}
+    override fun onDestroy(){appearanceWindow?.dismiss();handler.removeCallbacksAndMessages(null);web?.destroy();tts?.shutdown();worker.shutdownNow();syncWorker.shutdownNow();super.onDestroy()}
 }

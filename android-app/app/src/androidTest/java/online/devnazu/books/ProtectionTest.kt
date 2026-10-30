@@ -11,6 +11,33 @@ class ProtectionTest {
   androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.getSharedPreferences("MainActivity",android.content.Context.MODE_PRIVATE).edit().putBoolean("introduced",true).commit()
  }
 
+ @Test fun glassThemeChooserCanChangeMode(){
+  val instrumentation=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation();val context=instrumentation.targetContext;TokenVault(context).clear()
+  ActivityScenario.launch(MainActivity::class.java).use{scenario->
+   fun views(v:android.view.View):List<android.view.View> = listOf(v)+(if(v is android.view.ViewGroup)(0 until v.childCount).flatMap{views(v.getChildAt(it))}else emptyList())
+   scenario.onActivity{a->MainActivity::class.java.getDeclaredMethod("appearanceDialog").apply{isAccessible=true}.invoke(a)}
+   instrumentation.waitForIdleSync()
+   scenario.onActivity{a->val dialog=MainActivity::class.java.getDeclaredField("appearanceWindow").apply{isAccessible=true}.get(a) as android.app.Dialog;val decor=dialog.window!!.decorView;val bitmap=android.graphics.Bitmap.createBitmap(decor.width,decor.height,android.graphics.Bitmap.Config.ARGB_8888);decor.draw(android.graphics.Canvas(bitmap));java.io.File(a.filesDir,"glass-preview.png").outputStream().use{bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)};bitmap.recycle()}
+   val device=instrumentation.uiAutomation
+   val root=device.rootInActiveWindow
+   assertNotNull(root)
+   fun find(n:android.view.accessibility.AccessibilityNodeInfo):android.view.accessibility.AccessibilityNodeInfo?{if(n.text?.toString()?.contains("লাইট")==true||n.text?.toString()?.contains("Light")==true)return n;for(i in 0 until n.childCount){val child=n.getChild(i)?:continue;val result=find(child);if(result!=null)return result};return null}
+   val light=find(root);assertNotNull(light);assertTrue(light!!.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK));Thread.sleep(600)
+   assertEquals("light",context.getSharedPreferences("MainActivity",android.content.Context.MODE_PRIVATE).getString("appearance","dark"))
+  };context.getSharedPreferences("MainActivity",android.content.Context.MODE_PRIVATE).edit().putString("appearance","dark").commit()
+ }
+ @Test fun basicsCardsOpenEverySectionWithoutLogin(){
+  val context=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext;TokenVault(context).clear()
+  ActivityScenario.launch(MainActivity::class.java).use{scenario->
+   fun views(v:android.view.View):List<android.view.View> = listOf(v)+(if(v is android.view.ViewGroup)(0 until v.childCount).flatMap{views(v.getChildAt(it))}else emptyList())
+   for(section in listOf("hiragana","katakana","numbers")){
+    scenario.onActivity{a->views(a.window.decorView).first{it.contentDescription?.toString()=="basic-$section"}.performClick()}
+    var matched=false
+    for(attempt in 0 until 24){val latch=java.util.concurrent.CountDownLatch(1);scenario.onActivity{a->val web=MainActivity::class.java.getDeclaredField("web").apply{isAccessible=true}.get(a) as android.webkit.WebView;web.evaluateJavascript("!!document.getElementById('$section')"){matched=it=="true";latch.countDown()}};latch.await(2,java.util.concurrent.TimeUnit.SECONDS);if(matched)break;Thread.sleep(200)}
+    assertTrue(section,matched);scenario.onActivity{a->MainActivity::class.java.getDeclaredMethod("closeReader").apply{isAccessible=true}.invoke(a)}
+   }
+  }
+ }
  @Test fun themesUpdateOpenReaderAndLevelButtons(){
   val context=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext;TokenVault(context).clear()
   val prefs=context.getSharedPreferences("MainActivity",android.content.Context.MODE_PRIVATE)
@@ -28,6 +55,7 @@ class ProtectionTest {
     var result=""
     for(attempt in 0 until 30){val latch=java.util.concurrent.CountDownLatch(1);scenario.onActivity{a->val web=MainActivity::class.java.getDeclaredField("web").apply{isAccessible=true}.get(a) as android.webkit.WebView;web.evaluateJavascript("JSON.stringify({mode:document.documentElement.getAttribute('data-app-theme'),bg:getComputedStyle(document.body).backgroundColor,rows:document.querySelectorAll('article.row').length})"){result=it;latch.countDown()}};latch.await(2,java.util.concurrent.TimeUnit.SECONDS);if(result.contains(mode)&&result.contains("rows\\\":5"))break;Thread.sleep(200)}
     assertTrue(result,result.contains(mode));assertTrue(result,result.contains(if(mode=="dark")"rgb(7, 13, 20)"else"rgb(249, 247, 243)"));assertTrue(result,result.contains("rows\\\":5"))
+    Thread.sleep(550)
     scenario.onActivity{a->val decor=a.window.decorView;val bitmap=android.graphics.Bitmap.createBitmap(decor.width,decor.height,android.graphics.Bitmap.Config.ARGB_8888);decor.draw(android.graphics.Canvas(bitmap));java.io.File(a.filesDir,"reader-$mode-preview.png").outputStream().use{bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)};bitmap.recycle()}
    }
   }}finally{prefs.edit().putString("appearance","dark").putString("accent","sakura").commit()}

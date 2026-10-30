@@ -53,7 +53,7 @@ jobs:
         working-directory: android-app/backend
       - run: chmod +x gradlew && ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest --stacktrace
         working-directory: android-app
-      - run: node --test android-app/test/free-preview.test.cjs
+      - run: node --test android-app/test/*.test.cjs
       - name: Verify APK signature and alignment
         run: |
           APK=android-app/app/build/outputs/apk/debug/app-debug.apk
@@ -119,11 +119,11 @@ jobs:
         run: |
           ./gradlew assembleDebug
           mkdir -p build/live-delivery
-          cp app/build/outputs/apk/debug/app-debug.apk build/live-delivery/Nihongo-Path-Books-1.8.0.apk
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree build/live-delivery/Nihongo-Path-Books-1.8.0.apk AndroidManifest.xml | grep -F 'ca-app-pub-3728341118830943~7145978290'
-          python3 -c "import zipfile; z=zipfile.ZipFile('build/live-delivery/Nihongo-Path-Books-1.8.0.apk'); assert any(b'ca-app-pub-3728341118830943/5055001578' in z.read(n) for n in z.namelist() if n.endswith('.dex')), 'Owner rewarded unit missing'"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify build/live-delivery/Nihongo-Path-Books-1.8.0.apk
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging build/live-delivery/Nihongo-Path-Books-1.8.0.apk | head -1
+          cp app/build/outputs/apk/debug/app-debug.apk build/live-delivery/Nihongo-Path-Books-1.9.0.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree build/live-delivery/Nihongo-Path-Books-1.9.0.apk AndroidManifest.xml | grep -F 'ca-app-pub-3728341118830943~7145978290'
+          python3 -c "import zipfile; z=zipfile.ZipFile('build/live-delivery/Nihongo-Path-Books-1.9.0.apk'); assert any(b'ca-app-pub-3728341118830943/5055001578' in z.read(n) for n in z.namelist() if n.endswith('.dex')), 'Owner rewarded unit missing'"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify build/live-delivery/Nihongo-Path-Books-1.9.0.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging build/live-delivery/Nihongo-Path-Books-1.9.0.apk | head -1
         working-directory: android-app
       - uses: actions/upload-artifact@v4
         with:
@@ -181,6 +181,8 @@ jobs:
             adb shell am instrument -w -e class online.devnazu.books.ProtectionTest#themesUpdateOpenReaderAndLevelButtons online.devnazu.books.test/androidx.test.runner.AndroidJUnitRunner
             adb exec-out run-as online.devnazu.books cat files/reader-dark-preview.png > app/build/reports/androidTests/reader-dark-preview.png
             adb exec-out run-as online.devnazu.books cat files/reader-light-preview.png > app/build/reports/androidTests/reader-light-preview.png
+            adb shell am instrument -w -e class online.devnazu.books.ProtectionTest#glassThemeChooserCanChangeMode online.devnazu.books.test/androidx.test.runner.AndroidJUnitRunner
+            adb exec-out run-as online.devnazu.books cat files/glass-preview.png > app/build/reports/androidTests/glass-preview.png
             adb logcat -d -s BooksClockTest:I '*:S' > app/build/reports/androidTests/clock-compatibility.txt
             adb exec-out run-as online.devnazu.books cat files/library-preview.png > app/build/reports/androidTests/library-preview.png
             adb exec-out run-as online.devnazu.books cat files/rewards-preview.png > app/build/reports/androidTests/rewards-preview.png
@@ -190,7 +192,7 @@ jobs:
             adb exec-out run-as online.devnazu.books cat files/preferences-preview.png > app/build/reports/androidTests/preferences-preview.png
             python3 -c "from pathlib import Path; p=Path('app/build/reports/androidTests/auth-preview.png'); assert p.read_bytes().startswith(bytes.fromhex('89504e470d0a1a0a')), 'Auth capture is not a PNG'"
             if adb shell pm path online.devnazu.books | grep -q '^package:'; then adb uninstall online.devnazu.books; fi
-            adb install ../delivered-apk/Nihongo-Path-Books-1.8.0.apk
+            adb install ../delivered-apk/Nihongo-Path-Books-1.9.0.apk
             adb logcat -c
             adb shell am start -W -n online.devnazu.books/.MainActivity
             sleep 5

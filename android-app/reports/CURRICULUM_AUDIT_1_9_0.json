@@ -1,0 +1,49 @@
+{
+  "checked_at": "2026-10-30T08:45:06.938472+00:00",
+  "origin": "https://devnazu.online/",
+  "scope": "N5-N2 canonical vocabulary, grammar and kanji; N1 intentionally locked",
+  "levels": {
+    "N5": {
+      "counts": {
+        "vocab": 1052,
+        "grammar": 110,
+        "kanji": 110
+      },
+      "duplicate_ids": 0,
+      "sha256": "fa17fbf8a43063bf2889aec0954a36898ede583cba0d92eff88b250c9b3e1057"
+    },
+    "N4": {
+      "counts": {
+        "vocab": 1128,
+        "grammar": 113,
+        "kanji": 200
+      },
+      "duplicate_ids": 0,
+      "sha256": "b6c58e7cd60eb3f0d1413a398c8c596614c644a4f1a5d89f3e5751ff651605b8"
+    },
+    "N3": {
+      "counts": {
+        "vocab": 1260,
+        "grammar": 144,
+        "kanji": 336
+      },
+      "duplicate_ids": 0,
+      "sha256": "9b321c84441b1bb81c6a6c2da6cbc1596c64b7330df3044cc294c684db47120f"
+    },
+    "N2": {
+      "counts": {
+        "vocab": 1197,
+        "grammar": 208,
+        "kanji": 400
+      },
+      "duplicate_ids": 0,
+      "sha256": "ff016459a91b146bd916d5b34ca99c18b717df7ec88215697a88fad0ba687445"
+    }
+  },
+  "deployed_edge_version": 15,
+  "owner_rewarded_id": "ca-app-pub-3728341118830943/5055001578",
+  "limitations": [
+    "Full signed-in unlock / live AdMob delivery was not exercised.",
+    "Counts and rendering checked; this is not a linguistic accuracy review."
+  ]
+}
