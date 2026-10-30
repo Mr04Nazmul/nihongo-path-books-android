@@ -41,8 +41,20 @@ class MainActivity : ComponentActivity() {
     private var readerExpiry=0L
     private var status: TextView?=null
     private var tts: TextToSpeech?=null
-    private val ink=Color.rgb(248,239,231)
-    private val paper=Color.rgb(7,13,20)
+    private val dark get()=getPreferences(MODE_PRIVATE).getString("appearance","dark")!="light"
+    private val ink get()=if(dark)Color.rgb(248,239,231)else Color.rgb(31,39,49)
+    private val paper get()=if(dark)Color.rgb(7,13,20)else Color.rgb(249,247,243)
+    private val surface get()=if(dark)Color.rgb(19,28,38)else Color.WHITE
+    private val muted get()=if(dark)Color.rgb(174,185,198)else Color.rgb(86,99,114)
+    private val border get()=if(dark)Color.rgb(60,74,90)else Color.rgb(207,213,220)
+    private val accent get()=when(getPreferences(MODE_PRIVATE).getString("accent","sakura")){"ocean"->Color.rgb(28,106,161);"forest"->Color.rgb(26,117,91);else->Color.rgb(173,60,88)}
+    private fun appearanceJson()=JSONObject().put("dark",dark).put("accent",String.format("#%06X",0xffffff and accent)).toString()
+    private fun systemBars(){window.statusBarColor=paper;window.navigationBarColor=paper;window.decorView.systemUiVisibility=(if(!dark&&Build.VERSION.SDK_INT>=23)View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR else 0) or (if(!dark&&Build.VERSION.SDK_INT>=26)View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR else 0)}
+    private fun themedDialog()=AlertDialog.Builder(android.view.ContextThemeWrapper(this,if(dark)android.R.style.Theme_Material_Dialog_Alert else android.R.style.Theme_Material_Light_Dialog_Alert))
+    private fun appearanceDialog(){AlertDialog.Builder(android.view.ContextThemeWrapper(this,if(dark)android.R.style.Theme_Material_Dialog_Alert else android.R.style.Theme_Material_Light_Dialog_Alert)).setTitle(tr("Theme & colour","থিম ও রং")).setItems(arrayOf(tr("Dark","ডার্ক"),tr("Light","লাইট"),tr("Sakura pink","সাকুরা গোলাপি"),tr("Ocean blue","সমুদ্র নীল"),tr("Forest green","সবুজ"))){_,i->getPreferences(MODE_PRIVATE).edit().apply{if(i<2)putString("appearance",if(i==0)"dark"else"light")else putString("accent",listOf("sakura","ocean","forest")[i-2])}.apply();applyAppearance()} .show()}
+    private fun applyAppearance(){systemBars();if(web!=null){readerContainer?.setBackgroundColor(paper);readerToolbar?.setBackgroundColor(paper);readerToolbar?.let{row->for(j in 0 until row.childCount)(row.getChildAt(j) as? TextView)?.setTextColor(ink)};web?.setBackgroundColor(paper);web?.evaluateJavascript("window.applyAppAppearance("+appearanceJson()+")",null)}else draw()}
+    private var readerContainer:LinearLayout?=null
+    private var readerToolbar:LinearLayout?=null
     private var previewMode=false
     private val compact get()=resources.displayMetrics.widthPixels/resources.displayMetrics.density<320
     private val ticker=object:Runnable { override fun run(){
@@ -115,7 +127,7 @@ class MainActivity : ComponentActivity() {
     }
     private fun editAdminJson(title:String,path:String,initial:JSONObject,method:String="PUT"){
         val input=EditText(this).apply{setText(initial.toString(2));textSize=12f;typeface=android.graphics.Typeface.MONOSPACE;inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE;setHorizontallyScrolling(false);minLines=8;maxLines=18}
-        AlertDialog.Builder(this).setTitle(title).setView(input).setNegativeButton(tr("Cancel","বাতিল"),null).setPositiveButton(tr("Save","সংরক্ষণ")){_,_->
+        themedDialog().setTitle(title).setView(input).setNegativeButton(tr("Cancel","বাতিল"),null).setPositiveButton(tr("Save","সংরক্ষণ")){_,_->
             val payload=runCatching{JSONObject(input.text.toString())}.getOrNull();if(payload==null){message("Invalid JSON");return@setPositiveButton}
             async({api.request(path,method,payload)}){message(tr("Saved","সংরক্ষিত হয়েছে"));if(tab=="Admin")draw()}
         }.show()
@@ -142,9 +154,9 @@ class MainActivity : ComponentActivity() {
     private fun tr(en:String,be:String)=if(bn)be else en
     private fun dp(n:Int)=(n*resources.displayMetrics.density).toInt()
     private fun text(value:String,size:Float=16f):TextView=TextView(this).apply{text=value;textSize=size;setTextColor(ink);setPadding(0,dp(6),0,dp(6))}
-    private fun button(label:String,action:()->Unit):Button=Button(this).apply{text=label;isAllCaps=false;textSize=15f;setTextColor(Color.WHITE);minHeight=dp(50);background=android.graphics.drawable.GradientDrawable().apply{setColor(Color.rgb(225,112,126));cornerRadius=dp(22).toFloat()};setPadding(dp(14),dp(6),dp(14),dp(6));layoutParams=LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,dp(5),0,dp(5))};setOnClickListener{action()}}
+    private fun button(label:String,action:()->Unit):Button=Button(this).apply{text=label;isAllCaps=false;textSize=15f;setTextColor(Color.WHITE);minHeight=dp(50);background=android.graphics.drawable.GradientDrawable().apply{setColor(accent);cornerRadius=dp(22).toFloat()};setPadding(dp(14),dp(6),dp(14),dp(6));layoutParams=LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,dp(5),0,dp(5))};setOnClickListener{action()}}
     private fun add(label:String,size:Float=16f){area.addView(text(label,size))}
-    private fun card(action:LinearLayout.()->Unit){area.addView(LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(18),dp(14),dp(18),dp(14));background=android.graphics.drawable.GradientDrawable().apply{setColor(Color.rgb(19,28,38));setStroke(dp(1),Color.rgb(43,51,62));cornerRadius=dp(20).toFloat()};layoutParams=LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,dp(8),0,dp(8))};action()})}
+    private fun card(action:LinearLayout.()->Unit){area.addView(LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(18),dp(14),dp(18),dp(14));background=android.graphics.drawable.GradientDrawable().apply{setColor(surface);setStroke(dp(1),border);cornerRadius=dp(20).toFloat()};layoutParams=LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,dp(8),0,dp(8))};action()})}
     private fun now()=if(serverAt==0L)System.currentTimeMillis() else serverAt+(SystemClock.elapsedRealtime()-elapsedAt)
     private fun expiry(level:String):Long {val rows=data.optJSONArray("unlocks")?:JSONArray();for(i in 0 until rows.length()){val r=rows.getJSONObject(i);if(r.optString("level")==level)return runCatching{ServerTime.millis(r.getString("expires_at"))}.getOrDefault(0)};return 0}
     private fun balance(level:String):Int {val rows=data.optJSONArray("balances")?:JSONArray();for(i in 0 until rows.length()){val r=rows.getJSONObject(i);if(r.optString("level")==level)return r.optInt("credits")};return 0}
@@ -163,12 +175,14 @@ class MainActivity : ComponentActivity() {
     private fun refresh(after:(()->Unit)?=null){if(vault.read().isEmpty())return;async({api.request("/me")}){applySnapshot(it);after?.invoke()}}
     private fun draw(){
         if(web!=null)return
+        systemBars()
         if(tab=="Account"&&vault.read().isEmpty()){loginScreen();return}
         root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(paper);setPadding(dp(16),dp(25),dp(16),dp(8))}
         val head=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,0,0,dp(8))}
         head.addView(ImageView(this).apply{setImageResource(R.drawable.ic_books);scaleType=ImageView.ScaleType.CENTER_CROP},LinearLayout.LayoutParams(dp(34),dp(34)).apply{setMargins(0,0,dp(10),0)})
         head.addView(text("Nihongo\nPath Books",if(compact)12f else 14f).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END;typeface=android.graphics.Typeface.create("serif",android.graphics.Typeface.BOLD)},LinearLayout.LayoutParams(0,-2,1f))
         head.addView(quietButton("♛"){tab="Rewards";draw()}.apply{contentDescription=tr("Rewards","ক্রেডিট");textSize=20f;setTextColor(Color.rgb(231,181,76))},LinearLayout.LayoutParams(dp(30),dp(40)))
+        head.addView(quietButton("◐"){appearanceDialog()}.apply{contentDescription=tr("Theme & colour","থিম ও রং")},LinearLayout.LayoutParams(dp(30),dp(40)))
         head.addView(quietButton("ⓘ"){tab="About";draw()},LinearLayout.LayoutParams(dp(28),dp(40)))
         head.addView(quietButton(if(bn)"EN" else "বাংলা"){bn=!bn;draw()},LinearLayout.LayoutParams(dp(32),dp(40)));root.addView(head)
         val scroll=ScrollView(this);area=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL};scroll.addView(area);root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
@@ -176,7 +190,7 @@ class MainActivity : ComponentActivity() {
         listOf("Home","Books","Quiz","Progress","Account").forEach { page->
             val label=when(page){"Home"->tr("Home","হোম");"Books"->tr("Books","বই");"Quiz"->tr("Quiz","কুইজ");"Progress"->tr("Progress","অগ্রগতি");else->tr("Profile","প্রোফাইল")}
             val icons=mapOf("Home" to "⌂","Books" to "▣","Quiz" to "◇","Progress" to "▥","Account" to "♙")
-            nav.addView(quietButton(label){tab=page;draw()}.apply{contentDescription=label;setCompoundDrawablesWithIntrinsicBounds(null,NavIcon(icons.getValue(page),if(tab==page)Color.rgb(244,158,172) else Color.rgb(154,160,169)),null,null);setTextColor(if(tab==page)Color.rgb(244,158,172) else Color.rgb(154,160,169));textSize=10f;setPadding(0,dp(4),0,0)},LinearLayout.LayoutParams(0,dp(56),1f))
+            nav.addView(quietButton(label){tab=page;draw()}.apply{contentDescription=label;setCompoundDrawablesWithIntrinsicBounds(null,NavIcon(icons.getValue(page),if(tab==page)accent else muted),null,null);setTextColor(if(tab==page)accent else muted);textSize=10f;setPadding(0,dp(4),0,0)},LinearLayout.LayoutParams(0,dp(56),1f))
         };root.addView(nav);setContentView(root)
         status=null
         when(tab){"About"->about();"Admin"->administration();"Rewards"->rewards();"Account"->account();"Subjects"->subjectLibrary();"Books"->bookLevels();"Quiz"->quizLibrary();"Progress"->progressScreen();"Bookmarks"->bookmarksScreen();"ReaderSettings"->readerSettings();else->home()}
@@ -243,15 +257,16 @@ class MainActivity : ComponentActivity() {
     }
     private fun rewards(){
         add(tr("Reward Center","ক্রেডিট সেন্টার"),30f);add(tr("Choose a level. Finish an optional ad to earn one verified credit for that level. Redeem only when you choose.","লেভেল বেছে নিন। ইচ্ছামতো একটি বিজ্ঞাপন সম্পূর্ণ দেখে সেই লেভেলের একটি যাচাইকৃত ক্রেডিট পান। নিজের পছন্দে সময় কিনুন।"))
-        val picker=Spinner(this);picker.adapter=ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,Access.levels);picker.setSelection(Access.levels.indexOf(selected));area.addView(picker);picker.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{override fun onNothingSelected(p:AdapterView<*>?){};override fun onItemSelected(p:AdapterView<*>?,v:View?,pos:Int,id:Long){val n=Access.levels[pos];if(n!=selected){selected=n;draw()}}}
+        val levels=LinearLayout(this).apply{setPadding(0,dp(12),0,dp(12))}
+        Access.levels.forEach{level->levels.addView(button(level){selected=level;draw()}.apply{contentDescription=level;isSelected=level==selected;setTextColor(if(isSelected)Color.WHITE else ink);background=android.graphics.drawable.GradientDrawable().apply{setColor(if(level==selected)accent else surface);setStroke(dp(if(level==selected)2 else 1),if(level==selected)accent else border);cornerRadius=dp(14).toFloat()};textSize=16f;setPadding(0,dp(8),0,dp(8))},LinearLayout.LayoutParams(0,dp(52),1f).apply{setMargins(dp(3),0,dp(3),0)})};area.addView(levels)
         area.addView(text(accessText(selected),20f).apply{id=R.id.access_countdown})
         area.addView(button(tr("Watch one ad · earn 1 $selected credit","একটি বিজ্ঞাপন দেখুন · $selected-এর ১ ক্রেডিট পান")){watchAd()})
         val tiers=data.optJSONArray("tiers")?:JSONArray()
-        if(tiers.length()==0){add(tr("Sign in and sync to load available unlock durations.","উপলব্ধ সময় দেখতে লগইন করে সিঙ্ক করুন।"));val costs=Access.thresholds.getValue(selected);listOf("5h","24h","3d","7d").forEachIndexed{i,s->add("$s · ${costs[i]} "+tr("credits","ক্রেডিট"))}}
+        if(tiers.length()==0){add(tr("Sign in to load available unlock durations.","উপলব্ধ সময় দেখতে লগইন করুন।"));val costs=Access.thresholds.getValue(selected);listOf("5h","24h","3d","7d").forEachIndexed{i,s->add("$s · ${costs[i]} "+tr("credits","ক্রেডিট"))}}
         for(i in 0 until tiers.length()){val tier=tiers.getJSONObject(i);if(tier.optString("level")!=selected||!tier.optBoolean("enabled"))continue
             val duration=when(tier.getInt("seconds")){18000->tr("5 hours","৫ ঘণ্টা");86400->tr("24 hours","২৪ ঘণ্টা");259200->tr("3 days","৩ দিন");604800->tr("7 days","৭ দিন");else->"${tier.getInt("seconds")/3600} h"}
             card{addView(text("$duration · ${tier.getInt("credits")} "+tr("credits","ক্রেডিট"),21f));addView(button(tr("Redeem & start access","ক্রেডিট দিয়ে পড়া শুরু করুন")){
-                AlertDialog.Builder(this@MainActivity).setTitle(tr("Unlock $selected?","$selected খুলবেন? ")).setMessage(tr("Use ${tier.getInt("credits")} credits for $duration. Access starts immediately.","${tier.getInt("credits")} ক্রেডিট দিয়ে $duration পড়ুন। এখনই সময় শুরু হবে।")).setNegativeButton(tr("Cancel","বাতিল"),null).setPositiveButton(tr("Redeem","খুলুন")){_,_->redeem(tier.getString("id"))}.show()
+                themedDialog().setTitle(tr("Unlock $selected?","$selected খুলবেন? ")).setMessage(tr("Use ${tier.getInt("credits")} credits for $duration. Access starts immediately.","${tier.getInt("credits")} ক্রেডিট দিয়ে $duration পড়ুন। এখনই সময় শুরু হবে।")).setNegativeButton(tr("Cancel","বাতিল"),null).setPositiveButton(tr("Redeem","খুলুন")){_,_->redeem(tier.getString("id"))}.show()
             }.apply{isEnabled=expiry(selected)<=now()&&balance(selected)>=tier.getInt("credits")})}
         }
         area.addView(button(tr("Refresh verification & access","যাচাই ও সময় আপডেট করুন")){refresh()})
@@ -288,7 +303,7 @@ class MainActivity : ComponentActivity() {
         parent.addView(text(label,13f));return EditText(this).apply{hint=label;setSingleLine();inputType=if(secret)129 else 1;setTextColor(ink);textSize=16f;setPadding(dp(14),dp(10),dp(14),dp(10));background=android.graphics.drawable.GradientDrawable().apply{setColor(paper);cornerRadius=dp(12).toFloat();setStroke(dp(1),Color.rgb(208,218,211))};layoutParams=LinearLayout.LayoutParams(-1,dp(54)).apply{setMargins(0,0,0,dp(8))};parent.addView(this)}
     }
     private fun passwordSupport(){
-        AlertDialog.Builder(this).setTitle(tr("Password help","পাসওয়ার্ডের সহায়তা")).setMessage(tr("Contact support for account recovery. We will check account ownership before changing access. Never send your Gmail password.\n\nHossain Najmul\nWhatsApp: +81 70-9036-6509","অ্যাকাউন্ট ফিরে পেতে Support-এ যোগাযোগ করুন। মালিকানা যাচাই করে সহায়তা করা হবে। Gmail-এর পাসওয়ার্ড পাঠাবেন না।\n\nHossain Najmul\nWhatsApp: +81 70-9036-6509")).setPositiveButton(tr("Close","বন্ধ"),null).show()
+        themedDialog().setTitle(tr("Password help","পাসওয়ার্ডের সহায়তা")).setMessage(tr("Contact support for account recovery. We will check account ownership before changing access. Never send your Gmail password.\n\nHossain Najmul\nWhatsApp: +81 70-9036-6509","অ্যাকাউন্ট ফিরে পেতে Support-এ যোগাযোগ করুন। মালিকানা যাচাই করে সহায়তা করা হবে। Gmail-এর পাসওয়ার্ড পাঠাবেন না।\n\nHossain Najmul\nWhatsApp: +81 70-9036-6509")).setPositiveButton(tr("Close","বন্ধ"),null).show()
     }
     private fun about(){
         add(tr("About Nihongo Path Books","Nihongo Path Books সম্পর্কে"),27f)
@@ -313,18 +328,18 @@ class MainActivity : ComponentActivity() {
                 line.addView(identity,LinearLayout.LayoutParams(0,-2,1f));line.addView(quietButton("✎"){editProfileName()});addView(line)
             }
             card{
-                background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,intArrayOf(0xff653d60.toInt(),0xff182735.toInt())).apply{cornerRadius=dp(22).toFloat()}
+                background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,if(dark)intArrayOf(0xff653d60.toInt(),0xff182735.toInt())else intArrayOf(0xfff6e2ea.toInt(),0xffe6edf6.toInt())).apply{cornerRadius=dp(22).toFloat()}
                 addView(text(tr("A little gift for a friend","বন্ধুর জন্য ছোট্ট উপহার"),22f))
                 addView(text(tr("Invite a friend. A new account receives 5 N5 credits once.","আমন্ত্রণের কোডে নতুন অ্যাকাউন্ট খুললে বন্ধু একবার ৫ N5 ক্রেডিট পাবেন।"),13f))
                 addView(button(tr("Share my invitation  ↗","আমার আমন্ত্রণ শেয়ার করুন  ↗")){shareInvitation()})
             }
             card{
-                addView(text(tr("YOUR STUDY SPACE","আপনার পড়ার জায়গা"),11f).apply{setTextColor(Color.rgb(171,177,187))})
+                addView(text(tr("YOUR STUDY SPACE","আপনার পড়ার জায়গা"),11f).apply{setTextColor(muted)})
                 addView(profileRow("♡",tr("Bookmarks & progress","বুকমার্ক ও অগ্রগতি"),tr("Return to the words you saved","সংরক্ষিত শব্দ ও পড়ার অগ্রগতি")){tab="Bookmarks";draw()})
                 addView(profileRow("⚙",tr("Reading preferences","পড়ার পছন্দ"),tr("Text size and pronunciation speed","লেখার আকার ও উচ্চারণের গতি")){tab="ReaderSettings";draw()})
             }
             card{
-                addView(text(tr("ACCOUNT","অ্যাকাউন্ট"),11f).apply{setTextColor(Color.rgb(171,177,187))})
+                addView(text(tr("ACCOUNT","অ্যাকাউন্ট"),11f).apply{setTextColor(muted)})
                 addView(quietButton(tr("Sign out","লগআউট")){signOut(false)})
                 addView(quietButton(tr("Security & account data","নিরাপত্তা ও অ্যাকাউন্টের তথ্য")){accountSecurity()})
                 if(profile.optString("role")=="admin")addView(quietButton(tr("Admin Dashboard","অ্যাডমিন ড্যাশবোর্ড")){tab="Admin";draw()})
@@ -332,15 +347,15 @@ class MainActivity : ComponentActivity() {
         }
     }
     private fun profileRow(icon:String,title:String,subtitle:String,action:()->Unit):LinearLayout=LinearLayout(this).apply{
-        gravity=Gravity.CENTER_VERTICAL;setPadding(0,dp(10),0,dp(10));addView(text(icon,24f).apply{setTextColor(Color.rgb(240,160,176))},LinearLayout.LayoutParams(dp(40),-2))
-        addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(text(title,16f).apply{setPadding(0,0,0,dp(3))});addView(text(subtitle,11f).apply{setPadding(0,0,0,0);setTextColor(Color.rgb(166,174,185))})},LinearLayout.LayoutParams(0,-2,1f));addView(text("›",25f));isClickable=true;isFocusable=true;contentDescription=title;setOnClickListener{action()}
+        gravity=Gravity.CENTER_VERTICAL;setPadding(0,dp(10),0,dp(10));addView(text(icon,24f).apply{setTextColor(accent)},LinearLayout.LayoutParams(dp(40),-2))
+        addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(text(title,16f).apply{setPadding(0,0,0,dp(3))});addView(text(subtitle,11f).apply{setPadding(0,0,0,0);setTextColor(muted)})},LinearLayout.LayoutParams(0,-2,1f));addView(text("›",25f));isClickable=true;isFocusable=true;contentDescription=title;setOnClickListener{action()}
     }
-    private fun editProfileName(){val input=EditText(this).apply{setSingleLine();setText(data.optJSONObject("user")?.optString("name")?:"")};AlertDialog.Builder(this).setTitle(tr("Your name","আপনার নাম")).setView(input).setNegativeButton(tr("Cancel","বাতিল"),null).setPositiveButton(tr("Save","রাখুন")){_,_->async({api.request("/profile","PATCH",JSONObject().put("name",input.text.toString().trim()))}){refresh()}}.show()}
-    private fun shareInvitation(){async({api.request("/referrals")}){r->val code=r.getString("code");val link="nihongopathbooks://join?ref="+android.net.Uri.encode(code);AlertDialog.Builder(this).setTitle(tr("Your invitation code","আপনার আমন্ত্রণ কোড")).setMessage(code+"\n\n"+tr("A new account receives 5 N5 credits with this code.","এই কোডে নতুন অ্যাকাউন্ট খুললে একবার ৫ N5 ক্রেডিট পাওয়া যাবে।")).setNegativeButton(tr("Close","বন্ধ"),null).setPositiveButton(tr("Share","শেয়ার")){_,_->startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).apply{type="text/plain";putExtra(android.content.Intent.EXTRA_TEXT,"Nihongo Path Books · 5 free N5 credits\n"+link+"\nCode: "+code)},tr("Invite a friend","বন্ধুকে আমন্ত্রণ")))}.show()}}
+    private fun editProfileName(){val input=EditText(this).apply{setSingleLine();setText(data.optJSONObject("user")?.optString("name")?:"")};themedDialog().setTitle(tr("Your name","আপনার নাম")).setView(input).setNegativeButton(tr("Cancel","বাতিল"),null).setPositiveButton(tr("Save","রাখুন")){_,_->async({api.request("/profile","PATCH",JSONObject().put("name",input.text.toString().trim()))}){refresh()}}.show()}
+    private fun shareInvitation(){async({api.request("/referrals")}){r->val code=r.getString("code");val link="nihongopathbooks://join?ref="+android.net.Uri.encode(code);themedDialog().setTitle(tr("Your invitation code","আপনার আমন্ত্রণ কোড")).setMessage(code+"\n\n"+tr("A new account receives 5 N5 credits with this code.","এই কোডে নতুন অ্যাকাউন্ট খুললে একবার ৫ N5 ক্রেডিট পাওয়া যাবে।")).setNegativeButton(tr("Close","বন্ধ"),null).setPositiveButton(tr("Share","শেয়ার")){_,_->startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).apply{type="text/plain";putExtra(android.content.Intent.EXTRA_TEXT,"Nihongo Path Books · 5 free N5 credits\n"+link+"\nCode: "+code)},tr("Invite a friend","বন্ধুকে আমন্ত্রণ")))}.show()}}
     private fun signOut(all:Boolean){async({api.request(if(all)"/auth/logout-all" else "/auth/logout","POST")}){vault.clear();WebStorage.getInstance().deleteAllData();data=JSONObject();tab="Home";draw()}}
-    private fun accountSecurity(){AlertDialog.Builder(this).setTitle(tr("Account security","অ্যাকাউন্টের নিরাপত্তা")).setItems(arrayOf(tr("Sign out all devices","সব ডিভাইস থেকে লগআউট"),tr("Delete Nihongo app data","Nihongo অ্যাপের তথ্য মুছুন"))){_,i->if(i==0)signOut(true)else AlertDialog.Builder(this).setTitle(tr("Delete app data permanently?","অ্যাপের তথ্য স্থায়ীভাবে মুছবেন? ")).setMessage(tr("Credits, progress and access will be removed. Your shared sign-in identity remains.","ক্রেডিট, পড়ার অগ্রগতি ও অনুমতি মুছে যাবে। Shared login থাকবে।")).setNegativeButton(tr("Cancel","বাতিল"),null).setPositiveButton(tr("Delete","মুছুন")){_,_->async({api.request("/account","DELETE")}){vault.clear();WebStorage.getInstance().deleteAllData();data=JSONObject();tab="Home";draw()}}.show()}.show()}
+    private fun accountSecurity(){themedDialog().setTitle(tr("Account security","অ্যাকাউন্টের নিরাপত্তা")).setItems(arrayOf(tr("Sign out all devices","সব ডিভাইস থেকে লগআউট"),tr("Delete Nihongo app data","Nihongo অ্যাপের তথ্য মুছুন"))){_,i->if(i==0)signOut(true)else themedDialog().setTitle(tr("Delete app data permanently?","অ্যাপের তথ্য স্থায়ীভাবে মুছবেন? ")).setMessage(tr("Credits, progress and access will be removed. Your shared sign-in identity remains.","ক্রেডিট, পড়ার অগ্রগতি ও অনুমতি মুছে যাবে। Shared login থাকবে।")).setNegativeButton(tr("Cancel","বাতিল"),null).setPositiveButton(tr("Delete","মুছুন")){_,_->async({api.request("/account","DELETE")}){vault.clear();WebStorage.getInstance().deleteAllData();data=JSONObject();tab="Home";draw()}}.show()}.show()}
     private fun bookmarksScreen(){add(tr("Bookmarks & progress","বুকমার্ক ও অগ্রগতি"),25f);val study=data.optJSONObject("studyState")?:JSONObject();add(tr("${study.optJSONArray("saved")?.length()?:0} bookmarks · ${study.optJSONArray("learned")?.length()?:0} learned","${study.optJSONArray("saved")?.length()?:0}টি বুকমার্ক · ${study.optJSONArray("learned")?.length()?:0}টি শেখা হয়েছে"),14f);Access.levels.forEach{level->card{addView(text(level,22f));listOf("vocab","grammar","kanji").forEachIndexed{i,kind->addView(quietButton(listOf(tr("Saved vocabulary","সংরক্ষিত শব্দ"),tr("Saved grammar","সংরক্ষিত ব্যাকরণ"),tr("Saved kanji","সংরক্ষিত কানজি"))[i]+"  →"){openStudy(level,kind,true)})}}}}
-    private fun readerSettings(){add(tr("Reading preferences","পড়ার পছন্দ"),25f);card{addView(text(tr("Text size","লেখার আকার"),20f));listOf(100,115,130).forEachIndexed{i,size->addView(button(listOf(tr("Standard","সাধারণ"),tr("Large","বড়"),tr("Extra large","আরও বড়"))[i]+if(getPreferences(MODE_PRIVATE).getInt("reader_zoom",100)==size)"  ✓" else ""){getPreferences(MODE_PRIVATE).edit().putInt("reader_zoom",size).apply();draw()})}};card{addView(text(tr("Pronunciation speed","উচ্চারণের গতি"),20f));listOf(0.75f,1f).forEachIndexed{i,speed->addView(quietButton(listOf(tr("Slow and clear","ধীরে ও স্পষ্ট"),tr("Natural speed","স্বাভাবিক গতি"))[i]){getPreferences(MODE_PRIVATE).edit().putFloat("speech_rate",speed).apply();tts?.setSpeechRate(speed);message(tr("Saved","সংরক্ষিত"))})}}}
+    private fun readerSettings(){area.addView(button(tr("Theme & colour","থিম ও রং")){appearanceDialog()});add(tr("Reading preferences","পড়ার পছন্দ"),25f);card{addView(text(tr("Text size","লেখার আকার"),20f));listOf(100,115,130).forEachIndexed{i,size->addView(button(listOf(tr("Standard","সাধারণ"),tr("Large","বড়"),tr("Extra large","আরও বড়"))[i]+if(getPreferences(MODE_PRIVATE).getInt("reader_zoom",100)==size)"  ✓" else ""){getPreferences(MODE_PRIVATE).edit().putInt("reader_zoom",size).apply();draw()})}};card{addView(text(tr("Pronunciation speed","উচ্চারণের গতি"),20f));listOf(0.75f,1f).forEachIndexed{i,speed->addView(quietButton(listOf(tr("Slow and clear","ধীরে ও স্পষ্ট"),tr("Natural speed","স্বাভাবিক গতি"))[i]){getPreferences(MODE_PRIVATE).edit().putFloat("speech_rate",speed).apply();tts?.setSpeechRate(speed);message(tr("Saved","সংরক্ষিত"))})}}}
     private fun loginScreen(){
         val register=authMode=="register"
         root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;background=LoginBlossoms();setPadding(dp(24),dp(24),dp(24),dp(20))}
@@ -348,7 +363,7 @@ class MainActivity : ComponentActivity() {
         val scroll=ScrollView(this).apply{isFillViewport=true};area=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER_HORIZONTAL};scroll.addView(area);root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f));status=null
         area.addView(ImageView(this).apply{setImageResource(R.drawable.login_emblem)},LinearLayout.LayoutParams(dp(82),dp(82)).apply{gravity=Gravity.CENTER_HORIZONTAL;setMargins(0,dp(5),0,dp(8))})
         area.addView(text("Nihongo\nPath Books",28f).apply{gravity=Gravity.CENTER;typeface=android.graphics.Typeface.create("serif",android.graphics.Typeface.BOLD);setPadding(0,0,0,0)})
-        area.addView(text(tr("Learn Japanese Step by Step","ধাপে ধাপে জাপানি শিখুন"),12f).apply{gravity=Gravity.CENTER;setTextColor(Color.rgb(185,181,176));setPadding(0,dp(9),0,dp(22))})
+        area.addView(text(tr("Learn Japanese Step by Step","ধাপে ধাপে জাপানি শিখুন"),12f).apply{gravity=Gravity.CENTER;setTextColor(muted);setPadding(0,dp(9),0,dp(22))})
         val form=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL};area.addView(form,LinearLayout.LayoutParams(-1,-2))
         val email=loginField(form,tr("Email address","ইমেইল ঠিকানা"),"♙").apply{inputType=33;setText(signInEmail);if(Build.VERSION.SDK_INT>=26)setAutofillHints("emailAddress")}
         val password=loginField(form,tr("Password","পাসওয়ার্ড"),"♧",true).apply{transformationMethod=android.text.method.PasswordTransformationMethod.getInstance();if(Build.VERSION.SDK_INT>=26)setAutofillHints(if(register)"newPassword" else "password")}
@@ -361,20 +376,20 @@ class MainActivity : ComponentActivity() {
             invitationPrefs.edit().putString("ref",ref).apply()
             runAuth({api.request(if(register)"/auth/register"else "/auth/login","POST",JSONObject().put("email",mail).put("password",pass).put("name",name?.text?.toString()?:"").put("referralCode",ref))}){result->password.text.clear();signInEmail=mail;acceptSession(result)}
         }.apply{layoutParams=LinearLayout.LayoutParams(-1,dp(46)).apply{setMargins(0,dp(8),0,dp(9))};textSize=14f})
-        if(!register)form.addView(quietButton(tr("Forgot password?","পাসওয়ার্ড ভুলে গেছেন?")){passwordSupport()}.apply{setTextColor(Color.rgb(242,175,182));gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,dp(36)))
+        if(!register)form.addView(quietButton(tr("Forgot password?","পাসওয়ার্ড ভুলে গেছেন?")){passwordSupport()}.apply{setTextColor(if(dark)Color.rgb(242,175,182)else accent);gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,dp(36)))
         val separator=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,dp(12),0,dp(12))};for(i in 0..2){if(i==1)separator.addView(text("OR",11f).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(dp(42),-2))else separator.addView(android.view.View(this).apply{setBackgroundColor(Color.rgb(50,54,62))},LinearLayout.LayoutParams(0,dp(1),1f))};form.addView(separator)
         form.addView(button(tr("G   Continue with Google","G   Google দিয়ে চালিয়ে যান")){googleSignIn(code?.text?.toString()?.trim()?:invitationPrefs.getString("ref","").orEmpty())}.apply{setTextColor(Color.rgb(22,25,30));textSize=13f;background=android.graphics.drawable.GradientDrawable().apply{setColor(Color.rgb(255,251,244));cornerRadius=dp(23).toFloat()};layoutParams=LinearLayout.LayoutParams(-1,dp(46)).apply{setMargins(0,dp(3),0,dp(15))}})
-        form.addView(quietButton(if(register)tr("Already registered? Sign in","অ্যাকাউন্ট আছে? লগইন করুন")else tr("Don't have an account? Sign Up","অ্যাকাউন্ট নেই? Sign Up")){authMode=if(register)"login"else "register";draw()}.apply{setTextColor(Color.rgb(242,175,182));gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,dp(42)))
+        form.addView(quietButton(if(register)tr("Already registered? Sign in","অ্যাকাউন্ট আছে? লগইন করুন")else tr("Don't have an account? Sign Up","অ্যাকাউন্ট নেই? Sign Up")){authMode=if(register)"login"else "register";draw()}.apply{setTextColor(if(dark)Color.rgb(242,175,182)else accent);gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,dp(42)))
         if(register)form.addView(text(tr("Valid invitations give a new account 5 N5 credits once.","সঠিক আমন্ত্রণ কোডে নতুন অ্যাকাউন্ট একবার ৫ N5 ক্রেডিট পাবে।"),11f))
         status=text("",12f).apply{gravity=Gravity.CENTER};form.addView(status);setContentView(root)
     }
     private fun loginField(parent:LinearLayout,label:String,icon:String,secret:Boolean=false):EditText{
-        val row=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(dp(12),0,dp(10),0);background=android.graphics.drawable.GradientDrawable().apply{setColor(0x33151d29);setStroke(dp(1),Color.rgb(65,70,80));cornerRadius=dp(11).toFloat()};layoutParams=LinearLayout.LayoutParams(-1,dp(46)).apply{setMargins(0,0,0,dp(10))}}
-        if(icon=="↗")row.addView(text(icon,20f),LinearLayout.LayoutParams(dp(29),-2))else row.addView(ImageView(this).apply{setImageResource(if(secret)R.drawable.login_lock else R.drawable.login_user)},LinearLayout.LayoutParams(dp(22),dp(22)).apply{setMargins(0,0,dp(7),0)});val input=EditText(this).apply{hint=label;contentDescription=label;setSingleLine();inputType=if(secret)129 else 1;setTextColor(ink);setHintTextColor(Color.rgb(176,178,183));textSize=13f;background=null;setPadding(0,0,0,0)};row.addView(input,LinearLayout.LayoutParams(0,-1,1f))
-        if(secret)row.addView(ImageButton(this).apply{setImageResource(R.drawable.login_eye);setBackgroundColor(Color.TRANSPARENT);setPadding(dp(4),dp(9),dp(4),dp(9));scaleType=ImageView.ScaleType.CENTER_INSIDE;contentDescription=tr("Show or hide password","পাসওয়ার্ড দেখুন বা লুকান");setOnClickListener{val show=input.transformationMethod!=null;input.transformationMethod=if(show)null else android.text.method.PasswordTransformationMethod.getInstance();input.setSelection(input.text.length)}},LinearLayout.LayoutParams(dp(30),-1));parent.addView(row);return input
+        val row=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(dp(12),0,dp(10),0);background=android.graphics.drawable.GradientDrawable().apply{setColor(surface);setStroke(dp(1),border);cornerRadius=dp(11).toFloat()};layoutParams=LinearLayout.LayoutParams(-1,dp(46)).apply{setMargins(0,0,0,dp(10))}}
+        if(icon=="↗")row.addView(text(icon,20f),LinearLayout.LayoutParams(dp(29),-2))else row.addView(ImageView(this).apply{setImageResource(if(secret)R.drawable.login_lock else R.drawable.login_user);setColorFilter(ink)},LinearLayout.LayoutParams(dp(22),dp(22)).apply{setMargins(0,0,dp(7),0)});val input=EditText(this).apply{hint=label;contentDescription=label;setSingleLine();inputType=if(secret)129 else 1;setTextColor(ink);setHintTextColor(muted);textSize=13f;background=null;setPadding(0,0,0,0)};row.addView(input,LinearLayout.LayoutParams(0,-1,1f))
+        if(secret)row.addView(ImageButton(this).apply{setImageResource(R.drawable.login_eye);setColorFilter(ink);setBackgroundColor(Color.TRANSPARENT);setPadding(dp(4),dp(9),dp(4),dp(9));scaleType=ImageView.ScaleType.CENTER_INSIDE;contentDescription=tr("Show or hide password","পাসওয়ার্ড দেখুন বা লুকান");setOnClickListener{val show=input.transformationMethod!=null;input.transformationMethod=if(show)null else android.text.method.PasswordTransformationMethod.getInstance();input.setSelection(input.text.length)}},LinearLayout.LayoutParams(dp(30),-1));parent.addView(row);return input
     }
     private inner class LoginBlossoms:android.graphics.drawable.Drawable(){
-        override fun draw(c:android.graphics.Canvas){c.drawColor(Color.rgb(5,10,17));val p=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);val w=bounds.width().toFloat();val density=resources.displayMetrics.density
+        override fun draw(c:android.graphics.Canvas){c.drawColor(paper);val p=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);val w=bounds.width().toFloat();val density=resources.displayMetrics.density
             fun flower(x:Float,y:Float,r:Float){c.save();c.translate(x,y);p.color=Color.rgb(224,115,142);for(i in 0..4){c.save();c.rotate(i*72f);c.drawOval(-r*.34f,-r,r*.34f,0f,p);c.restore()};p.color=Color.rgb(248,189,193);c.drawCircle(0f,0f,r*.16f,p);c.restore()}
             listOf(floatArrayOf(10f,18f,11f),floatArrayOf(40f,5f,7f),floatArrayOf(25f,69f,7f),floatArrayOf(8f,115f,10f)).forEach{flower(it[0]*density,it[1]*density,it[2]*density)}
             listOf(floatArrayOf(10f,45f,9f),floatArrayOf(36f,20f,7f),floatArrayOf(14f,112f,8f),floatArrayOf(28f,164f,6f)).forEach{flower(w-it[0]*density,it[1]*density,it[2]*density)}
@@ -387,12 +402,15 @@ class MainActivity : ComponentActivity() {
         if(!previewMode&&level!=null&&expiry(level)<=now()){tab="Rewards";draw();return}
         readerLevel=level;readerExpiry=level?.let{expiry(it)}?:Long.MAX_VALUE
         val container=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(0,dp(28),0,0);setBackgroundColor(paper)}
-        container.addView(quietButton(tr("← Library","← বইঘর")){closeReader()},LinearLayout.LayoutParams(-1,dp(44)))
+        readerContainer=container
+        val toolbar=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setBackgroundColor(paper)};readerToolbar=toolbar
+        toolbar.addView(quietButton(tr("← Library","← বইঘর")){closeReader()},LinearLayout.LayoutParams(0,dp(44),1f));toolbar.addView(quietButton("◐"){appearanceDialog()}.apply{contentDescription=tr("Theme & colour","থিম ও রং")},LinearLayout.LayoutParams(dp(52),dp(44)));container.addView(toolbar)
         val loader=WebViewAssetLoader.Builder().addPathHandler("/assets/",WebViewAssetLoader.AssetsPathHandler(this)).build()
-        val view=WebView(this);web=view
+        val view=WebView(this);web=view;view.setBackgroundColor(paper)
         view.settings.apply{javaScriptEnabled=true;textZoom=getPreferences(MODE_PRIVATE).getInt("reader_zoom",100);domStorageEnabled=true;allowFileAccess=false;allowContentAccess=false;cacheMode=WebSettings.LOAD_NO_CACHE;setSupportMultipleWindows(false);mixedContentMode=WebSettings.MIXED_CONTENT_NEVER_ALLOW;mediaPlaybackRequiresUserGesture=true}
         WebView.setWebContentsDebuggingEnabled(false)
         view.addJavascriptInterface(object{
+            @JavascriptInterface fun appearance():String=appearanceJson()
             @JavascriptInterface fun saveProgress(value:String){
                 if(vault.read().isNotEmpty() && value.length<150000){
                     val owner=data.optJSONObject("user")?.optString("id")
@@ -430,6 +448,7 @@ class MainActivity : ComponentActivity() {
                 return loader.shouldInterceptRequest(r.url)?:denied()
             }
             override fun onPageFinished(v:WebView,url:String){
+                v.evaluateJavascript("window.applyAppAppearance&&window.applyAppAppearance("+appearanceJson()+")",null)
                 if(url.contains("/study.html")||url.contains("/pdf-reader.html")){
                     val restored=data.optJSONObject("studyState")
                     if(restored!=null&&restored.length()>0)v.evaluateJavascript("Object.assign(state,JSON.parse(${JSONObject.quote(restored.toString())}));state.saved=state.saved||[];localStorage.setItem('nihongo-path',JSON.stringify(state));if(typeof data!=='undefined'&&data.vocab&&typeof render==='function')render();",null)
@@ -439,7 +458,7 @@ class MainActivity : ComponentActivity() {
         }
         container.addView(view,LinearLayout.LayoutParams(-1,0,1f));setContentView(container);view.loadUrl("https://appassets.androidplatform.net/assets/reader/$route")
     }
-    private fun closeReader(){web?.apply{stopLoading();loadUrl("about:blank");removeJavascriptInterface("StudyNative");clearCache(true);destroy()};web=null;readerLevel=null;previewMode=false;tts?.stop();draw()}
+    private fun closeReader(){web?.apply{stopLoading();loadUrl("about:blank");removeJavascriptInterface("StudyNative");clearCache(true);destroy()};web=null;readerContainer=null;readerToolbar=null;readerLevel=null;previewMode=false;tts?.stop();draw()}
     override fun onPause(){web?.onPause();tts?.stop();super.onPause()}
     override fun onResume(){super.onResume();web?.onResume();if(web==null&&vault.read().isNotEmpty())refresh();if(web!=null&&!previewMode&&readerLevel!=null)refresh{if(expiry(readerLevel!!)<=now())closeReader()}}
     override fun onDestroy(){handler.removeCallbacksAndMessages(null);web?.destroy();tts?.shutdown();worker.shutdownNow();syncWorker.shutdownNow();super.onDestroy()}

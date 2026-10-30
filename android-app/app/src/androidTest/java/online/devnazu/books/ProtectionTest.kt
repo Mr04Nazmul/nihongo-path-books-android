@@ -11,6 +11,28 @@ class ProtectionTest {
   androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.getSharedPreferences("MainActivity",android.content.Context.MODE_PRIVATE).edit().putBoolean("introduced",true).commit()
  }
 
+ @Test fun themesUpdateOpenReaderAndLevelButtons(){
+  val context=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext;TokenVault(context).clear()
+  val prefs=context.getSharedPreferences("MainActivity",android.content.Context.MODE_PRIVATE)
+  prefs.edit().putString("appearance","dark").commit()
+  try{ActivityScenario.launch(MainActivity::class.java).use{scenario->
+   fun views(v:android.view.View):List<android.view.View> = listOf(v)+(if(v is android.view.ViewGroup)(0 until v.childCount).flatMap{views(v.getChildAt(it))}else emptyList())
+   scenario.onActivity{a->
+    MainActivity::class.java.getDeclaredField("tab").apply{isAccessible=true}.set(a,"Rewards");MainActivity::class.java.getDeclaredMethod("draw").apply{isAccessible=true}.invoke(a)
+    assertFalse(views(a.window.decorView).any{it is android.widget.Spinner})
+    for(level in Access.levels){views(a.window.decorView).filterIsInstance<android.widget.Button>().first{it.text.toString()==level}.performClick();assertEquals(level,MainActivity::class.java.getDeclaredField("selected").apply{isAccessible=true}.get(a))}
+    MainActivity::class.java.getDeclaredMethod("openStudy",String::class.java,String::class.java,Boolean::class.javaPrimitiveType).apply{isAccessible=true}.invoke(a,"N5","vocab",false)
+   }
+   for(mode in listOf("dark","light","dark")){
+    scenario.onActivity{a->prefs.edit().putString("appearance",mode).commit();MainActivity::class.java.getDeclaredMethod("applyAppearance").apply{isAccessible=true}.invoke(a)}
+    var result=""
+    for(attempt in 0 until 30){val latch=java.util.concurrent.CountDownLatch(1);scenario.onActivity{a->val web=MainActivity::class.java.getDeclaredField("web").apply{isAccessible=true}.get(a) as android.webkit.WebView;web.evaluateJavascript("JSON.stringify({mode:document.documentElement.getAttribute('data-app-theme'),bg:getComputedStyle(document.body).backgroundColor,rows:document.querySelectorAll('article.row').length})"){result=it;latch.countDown()}};latch.await(2,java.util.concurrent.TimeUnit.SECONDS);if(result.contains(mode)&&result.contains("rows\\\":5"))break;Thread.sleep(200)}
+    assertTrue(result,result.contains(mode));assertTrue(result,result.contains(if(mode=="dark")"rgb(7, 13, 20)"else"rgb(249, 247, 243)"));assertTrue(result,result.contains("rows\\\":5"))
+    scenario.onActivity{a->val decor=a.window.decorView;val bitmap=android.graphics.Bitmap.createBitmap(decor.width,decor.height,android.graphics.Bitmap.Config.ARGB_8888);decor.draw(android.graphics.Canvas(bitmap));java.io.File(a.filesDir,"reader-$mode-preview.png").outputStream().use{bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)};bitmap.recycle()}
+   }
+  }}finally{prefs.edit().putString("appearance","dark").putString("accent","sakura").commit()}
+ }
+
  @Test fun profileUsesNativePreferencesAndNoManualSync(){
   val context=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext;TokenVault(context).clear()
   try{ActivityScenario.launch(MainActivity::class.java).use{scenario->scenario.onActivity{a->

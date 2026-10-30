@@ -19,6 +19,14 @@ s=s.replace('</head>','<style>body{background:#faf6ef!important;color:#27252a!im
 (basics/'index.html').write_text(s)
 for p in (root/'android-app/reader').glob('*.html'):shutil.copy2(p,out/p.name)
 shutil.copy2(root/'android-app/reader/compat.js',out/'compat.js')
+shutil.copy2(root/'android-app/reader/appearance.js',out/'appearance.js')
+# Apply the shared native palette before any reader content is painted.
+for html in out.rglob('*.html'):
+ markup=html.read_text();prefix='../' if html.parent==basics else ''
+ script='<script src="'+prefix+'appearance.js"></script>'
+ if '</head>' in markup:markup=markup.replace('</head>',script+'</head>',1)
+ else:markup=markup.replace('<main',script+'<main',1)
+ html.write_text(markup)
 for name in ['listening.js','listening.css']:
  s=(source/name).read_text()
  if name.endswith('.js'):s=s.replace("LEVELS=['N5','N4','N3','N2','N1','EXTRA']","LEVELS=['N5']")
