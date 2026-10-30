@@ -12,6 +12,7 @@ for directory in ['fonts','vendor']:
  if (source/directory).exists():shutil.copytree(source/directory,out/directory)
 # Basics have standalone tables. Strip download/back links so they cannot lead to the old website.
 basics=out/'basics';basics.mkdir()
+if (source/'basics/basics.css').exists():shutil.copy2(source/'basics/basics.css',basics/'basics.css')
 s=(source/'basics/index.html').read_text()
 s=re.sub(r'<(?:header|footer|nav)\b[^>]*>.*?</(?:header|footer|nav)>','',s,flags=re.S|re.I)
 s=re.sub(r'<a\b[^>]*href=["\'](?!#)[^"\']*["\'][^>]*>.*?</a>','',s,flags=re.S|re.I)
