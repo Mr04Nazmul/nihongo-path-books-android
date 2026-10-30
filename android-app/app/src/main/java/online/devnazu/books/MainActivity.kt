@@ -141,7 +141,7 @@ class MainActivity : ComponentActivity() {
     private fun tr(en:String,be:String)=if(bn)be else en
     private fun dp(n:Int)=(n*resources.displayMetrics.density).toInt()
     private fun text(value:String,size:Float=16f):TextView=TextView(this).apply{text=value;textSize=size;setTextColor(ink);setPadding(0,dp(6),0,dp(6))}
-    private fun button(label:String,action:()->Unit):Button=Button(this).apply{text=label;isAllCaps=false;textSize=15f;setTextColor(Color.WHITE);minHeight=dp(50);backgroundTintList=android.content.res.ColorStateList.valueOf(Color.rgb(225,112,126));setPadding(dp(14),dp(6),dp(14),dp(6));layoutParams=LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,dp(5),0,dp(5))};setOnClickListener{action()}}
+    private fun button(label:String,action:()->Unit):Button=Button(this).apply{text=label;isAllCaps=false;textSize=15f;setTextColor(Color.WHITE);minHeight=dp(50);background=android.graphics.drawable.GradientDrawable().apply{setColor(Color.rgb(225,112,126));cornerRadius=dp(22).toFloat()};setPadding(dp(14),dp(6),dp(14),dp(6));layoutParams=LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,dp(5),0,dp(5))};setOnClickListener{action()}}
     private fun add(label:String,size:Float=16f){area.addView(text(label,size))}
     private fun card(action:LinearLayout.()->Unit){area.addView(LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(18),dp(14),dp(18),dp(14));background=android.graphics.drawable.GradientDrawable().apply{setColor(Color.rgb(19,28,38));setStroke(dp(1),Color.rgb(43,51,62));cornerRadius=dp(20).toFloat()};layoutParams=LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,dp(8),0,dp(8))};action()})}
     private fun now()=if(serverAt==0L)System.currentTimeMillis() else serverAt+(SystemClock.elapsedRealtime()-elapsedAt)
@@ -162,12 +162,22 @@ class MainActivity : ComponentActivity() {
     private fun refresh(after:(()->Unit)?=null){if(vault.read().isEmpty())return;async({api.request("/me")}){applySnapshot(it);after?.invoke()}}
     private fun draw(){
         if(web!=null)return
-        root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(paper);setPadding(dp(18),dp(30),dp(18),dp(12))}
-        val head=LinearLayout(this);head.gravity=Gravity.CENTER_VERTICAL;head.addView(text("NIHONGO PATH\nBOOKS",16f),LinearLayout.LayoutParams(0,-2,1f));head.addView(button(tr("About","তথ্য")){tab="About";draw()},LinearLayout.LayoutParams(-2,-2));head.addView(button(if(bn)"EN" else "বাংলা"){bn=!bn;draw()},LinearLayout.LayoutParams(-2,-2));root.addView(head)
+        root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(paper);setPadding(dp(16),dp(25),dp(16),dp(8))}
+        val head=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,0,0,dp(8))}
+        head.addView(ImageView(this).apply{setImageResource(R.drawable.ic_books);scaleType=ImageView.ScaleType.CENTER_CROP},LinearLayout.LayoutParams(dp(34),dp(34)).apply{setMargins(0,0,dp(10),0)})
+        head.addView(text("Nihongo\nPath Books",14f).apply{typeface=android.graphics.Typeface.create("serif",android.graphics.Typeface.BOLD)},LinearLayout.LayoutParams(0,-2,1f))
+        head.addView(quietButton(tr("Rewards","ক্রেডিট")){tab="Rewards";draw()},LinearLayout.LayoutParams(-2,dp(40)))
+        head.addView(quietButton("ⓘ"){tab="About";draw()},LinearLayout.LayoutParams(dp(36),dp(40)))
+        head.addView(quietButton(if(bn)"EN" else "বাংলা"){bn=!bn;draw()},LinearLayout.LayoutParams(dp(42),dp(40)));root.addView(head)
         val scroll=ScrollView(this);area=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL};scroll.addView(area);root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
-        val nav=LinearLayout(this);listOf("Home","Rewards","Account").forEach { page->nav.addView(button(when(page){"Home"->tr("Library","বইঘর");"Rewards"->tr("Rewards","ক্রেডিট");else->tr("Account","অ্যাকাউন্ট")}){tab=page;draw()},LinearLayout.LayoutParams(0,-2,1f)) };root.addView(nav);setContentView(root)
+        val nav=LinearLayout(this).apply{setPadding(0,dp(8),0,0)}
+        listOf("Home","Books","Quiz","Progress","Account").forEach { page->
+            val label=when(page){"Home"->tr("Home","হোম");"Books"->tr("Books","বই");"Quiz"->tr("Quiz","কুইজ");"Progress"->tr("Progress","অগ্রগতি");else->tr("Profile","প্রোফাইল")}
+            val icons=mapOf("Home" to "⌂","Books" to "▣","Quiz" to "◇","Progress" to "▥","Account" to "♙")
+            nav.addView(quietButton(label){tab=page;draw()}.apply{contentDescription=label;setCompoundDrawablesWithIntrinsicBounds(null,NavIcon(icons.getValue(page),if(tab==page)Color.rgb(244,158,172) else Color.rgb(154,160,169)),null,null);setTextColor(if(tab==page)Color.rgb(244,158,172) else Color.rgb(154,160,169));textSize=10f;setPadding(0,dp(4),0,0)},LinearLayout.LayoutParams(0,dp(56),1f))
+        };root.addView(nav);setContentView(root)
         status=null
-        when(tab){"About"->about();"Admin"->administration();"Rewards"->rewards();"Account"->account();"Books"->subjectLibrary();else->home()}
+        when(tab){"About"->about();"Admin"->administration();"Rewards"->rewards();"Account"->account();"Subjects"->subjectLibrary();"Books"->bookLevels();"Quiz"->quizLibrary();"Progress"->progressScreen();else->home()}
         if(status==null){status=text("");area.addView(status)}
     }
     private fun splash(){
@@ -181,24 +191,40 @@ class MainActivity : ComponentActivity() {
         overlay.addView(button("はじめる  →"){getPreferences(MODE_PRIVATE).edit().putBoolean("introduced",true).apply();draw()})
         frame.addView(overlay,FrameLayout.LayoutParams(-1,-1));setContentView(frame)
     }
+    private fun quietButton(label:String,action:()->Unit)=button(label,action).apply{background=android.graphics.drawable.ColorDrawable(Color.TRANSPARENT);setTextColor(ink);textSize=12f;minWidth=0;minimumWidth=0;minHeight=0;minimumHeight=0;setPadding(dp(6),0,dp(6),0);layoutParams=LinearLayout.LayoutParams(-2,dp(40))}
+    private inner class NavIcon(private val glyph:String,private val tint:Int):android.graphics.drawable.Drawable(){
+        override fun draw(canvas:android.graphics.Canvas){val paint=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply{color=tint;textSize=dp(25).toFloat();textAlign=android.graphics.Paint.Align.CENTER};canvas.drawText(glyph,bounds.exactCenterX(),bounds.bottom-dp(3).toFloat(),paint)}
+        override fun setAlpha(alpha:Int){};override fun setColorFilter(filter:android.graphics.ColorFilter?){};@Deprecated("Deprecated in Java") override fun getOpacity()=android.graphics.PixelFormat.TRANSLUCENT
+        override fun getIntrinsicWidth()=dp(26);override fun getIntrinsicHeight()=dp(29)
+    }
     private fun home(){
-        add("こんにちは！",28f);add(tr("Let's continue your Japanese journey","চলুন, জাপানি শেখার পথে এগিয়ে যাই"),15f)
+        add("こんにちは！",23f);add(tr("Let's continue your Japanese journey","চলুন, জাপানি শেখার পথে এগিয়ে যাই"),12f)
+        val study=data.optJSONObject("studyState")?:JSONObject()
+        card{setPadding(dp(14),dp(8),dp(14),dp(8));addView(text(tr("My progress","আমার অগ্রগতি"),12f));val row=LinearLayout(this);row.addView(text(selected,17f),LinearLayout.LayoutParams(0,-2,1f));row.addView(text(tr("${study.optJSONArray("learned")?.length()?:0} learned","${study.optJSONArray("learned")?.length()?:0}টি শেখা হয়েছে"),12f));addView(row)}
         val hero=FrameLayout(this)
-        hero.addView(ImageView(this).apply{setImageResource(R.drawable.sakura_journey);scaleType=ImageView.ScaleType.CENTER_CROP},FrameLayout.LayoutParams(-1,dp(190)))
-        hero.addView(text("毎日の一歩が、未来をつくる。\n"+tr("Small steps today. A brighter future tomorrow.","আজকের ছোট পদক্ষেপ, আগামীর সুন্দর ভবিষ্যৎ।"),18f).apply{setPadding(dp(16),dp(105),dp(16),dp(12));setShadowLayer(8f,0f,2f,Color.BLACK)},FrameLayout.LayoutParams(-1,-1));area.addView(hero)
-        card {addView(text(tr("Start here · Always free","শুরু এখানেই · সবসময় ফ্রি"),22f));addView(text(tr("Hiragana · Katakana · Japanese numbers","হিরাগানা · কাতাকানা · জাপানি সংখ্যা")));addView(button(tr("Open basics →","প্রাথমিক পাঠ খুলুন →")){openReader("basics/index.html",null)})}
-        add("JLPT Books",26f)
-        Access.levels.forEachIndexed { i,level->card {
-            background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,intArrayOf(intArrayOf(0xff673c57.toInt(),0xff304e78.toInt(),0xff235c4f.toInt(),0xff77512f.toInt())[i],0xff101922.toInt())).apply{cornerRadius=dp(20).toFloat()}
-            addView(text(level+"  ·  "+listOf("Beginner","Basic","Intermediate","Upper intermediate")[i],26f));addView(text(tr("5 vocabulary · 5 grammar · 5 kanji free","৫টি vocabulary · ৫টি grammar · ৫টি kanji ফ্রি"),14f));addView(text(accessText(level),13f));addView(button(tr("Explore books →","বই দেখুন →")){chooseSubject(level)})
-        }}
-        card{addView(text("N1 · Coming Soon",26f));addView(text(tr("Locked","লক করা")))}
+        hero.addView(ImageView(this).apply{setImageResource(R.drawable.sakura_journey);scaleType=ImageView.ScaleType.CENTER_CROP},FrameLayout.LayoutParams(-1,dp(150)))
+        hero.addView(text("毎日の一歩が、未来をつくる。\n"+tr("Small steps today. A brighter future tomorrow.","প্রতিদিন একটু করে, আগামীর পথে।"),13f).apply{setPadding(dp(14),dp(96),dp(14),dp(10));setShadowLayer(8f,0f,2f,Color.BLACK)},FrameLayout.LayoutParams(-1,-1));area.addView(hero)
+        val labels=listOf("Vocabulary\n単語","Grammar\n文法","Kanji\n漢字","Books\n教科書");val colors=listOf(0xffb45374.toInt(),0xff286a9b.toInt(),0xff148665.toInt(),0xffad6c35.toInt())
+        for(r in 0..1){val row=LinearLayout(this);for(c in 0..1){val i=r*2+c;row.addView(button(labels[i]){if(i==3){tab="Books";draw()}else openStudy(selected,listOf("vocab","grammar","kanji")[i])}.apply{textSize=15f;gravity=Gravity.START or Gravity.CENTER_VERTICAL;setPadding(dp(14),dp(8),dp(8),dp(8));background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,intArrayOf(colors[i],0xff101c2c.toInt())).apply{cornerRadius=dp(14).toFloat()}},LinearLayout.LayoutParams(0,dp(72),1f).apply{setMargins(if(c==1)dp(4) else 0,dp(7),if(c==0)dp(4) else 0,0)})};area.addView(row)}
+        area.addView(quietButton(tr("Hiragana · Katakana · Numbers →","হিরাগানা · কাতাকানা · সংখ্যা →")){previewMode=false;openReader("basics/index.html",null)})
     }
-    private fun chooseSubject(level:String){
-        if(level !in Access.levels){message("N1 · Coming Soon");return};selected=level;tab="Books";draw()
+    private fun openStudy(level:String,kind:String){selected=level;previewMode=expiry(level)<=now();openReader("study.html?level=$level&section=$kind"+if(previewMode)"&preview=1" else "",level)}
+    private fun bookLevels(){
+        add("JLPT Books",24f)
+        val filters=LinearLayout(this);listOf("All","N5","N4","N3","N2").forEach{n->filters.addView(quietButton(n){if(n!="All")chooseSubject(n)},LinearLayout.LayoutParams(0,dp(38),1f))};area.addView(filters)
+        (Access.levels+"N1").forEachIndexed {i,level->
+            val tile=FrameLayout(this).apply{layoutParams=LinearLayout.LayoutParams(-1,dp(94)).apply{setMargins(0,dp(7),0,dp(3))};background=android.graphics.drawable.GradientDrawable().apply{setColor(Color.rgb(28,37,48));cornerRadius=dp(16).toFloat()};clipToOutline=true}
+            tile.addView(ImageView(this).apply{setImageResource(R.drawable.sakura_journey);scaleType=ImageView.ScaleType.CENTER_CROP;alpha=if(level=="N1")0.25f else 0.65f},FrameLayout.LayoutParams(-1,-1))
+            val hues=intArrayOf(0xffe3a1ba.toInt(),0xff8eabe6.toInt(),0xff8fd5b4.toInt(),0xffe7b67b.toInt(),0xff898b8f.toInt())
+            val info=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(18),dp(8),dp(12),dp(8));background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,intArrayOf(hues[i],0x22334050));addView(text(level,28f).apply{setTextColor(Color.rgb(25,30,36));setPadding(0,0,0,0)});addView(text(listOf("Beginner","Basic","Intermediate","Upper intermediate","Advanced · Coming Soon")[i],12f).apply{setTextColor(Color.rgb(25,30,36));setPadding(0,0,0,0)});if(level!="N1")addView(text(tr("Vocabulary · Grammar · Kanji","শব্দভান্ডার · ব্যাকরণ · কানজি"),11f).apply{setTextColor(Color.rgb(25,30,36));setPadding(0,dp(3),0,0)})}
+            tile.addView(info,FrameLayout.LayoutParams(-1,-1));tile.setOnClickListener{chooseSubject(level)};area.addView(tile)
+        }
     }
+    private fun quizLibrary(){add(tr("Practice a little every day","প্রতিদিন একটু অনুশীলন"),24f);Access.levels.forEach{level->area.addView(button("$level Quiz →"){openStudy(level,"quiz")})}}
+    private fun progressScreen(){val study=data.optJSONObject("studyState")?:JSONObject();add(tr("My progress","আমার অগ্রগতি"),26f);card{addView(text(tr("Learned entries","শেখা entry"),14f));addView(text((study.optJSONArray("learned")?.length()?:0).toString(),32f))};card{addView(text(tr("Bookmarks","বুকমার্ক"),14f));addView(text((study.optJSONArray("saved")?.length()?:0).toString(),32f))};add(tr("Sign in to keep your study progress synchronized.","পড়ার অগ্রগতি সংরক্ষণ করতে লগইন করুন।"),13f)}
+    private fun chooseSubject(level:String){if(level !in Access.levels){message("N1 · Coming Soon");return};selected=level;tab="Subjects";draw()}
     private fun subjectLibrary(){
-        add("←  $selected Books",28f)
+        add("←  $selected Books",24f)
         add(tr("First 5 entries in each subject are always free.","প্রতি বিষয়ের প্রথম ৫টি entry সবসময় ফ্রি।"),14f)
         listOf("vocab","grammar","kanji").forEachIndexed {i,kind->card{
             addView(text(listOf("Vocabulary · 単語","Grammar · 文法","Kanji · 漢字")[i],24f))
@@ -277,7 +303,7 @@ class MainActivity : ComponentActivity() {
         if(vault.read().isEmpty()){
             val register=authMode=="register"
             area.addView(ImageView(this).apply{setImageResource(R.drawable.ic_books);scaleType=ImageView.ScaleType.CENTER_CROP},LinearLayout.LayoutParams(dp(92),dp(92)).apply{gravity=Gravity.CENTER_HORIZONTAL;setMargins(0,dp(16),0,dp(12))})
-            add("Nihongo\nPath Books",34f)
+            area.addView(text("Nihongo\nPath Books",30f).apply{gravity=Gravity.CENTER;typeface=android.graphics.Typeface.SERIF})
             add(tr("Learn Japanese Step by Step","ধাপে ধাপে জাপানি শিখুন"),15f)
             add(tr("Keep your books, progress and credits together.","বই, পড়ার অগ্রগতি ও ক্রেডিট একসঙ্গে রাখুন।"),15f)
             card{

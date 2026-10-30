@@ -16,7 +16,7 @@ class ProtectionTest {
   ActivityScenario.launch(MainActivity::class.java).use{scenario->scenario.onActivity{a->
    fun views(v:android.view.View):List<android.view.View> = listOf(v)+(if(v is android.view.ViewGroup)(0 until v.childCount).flatMap{views(v.getChildAt(it))}else emptyList())
    fun buttons()=views(a.findViewById(android.R.id.content)).filterIsInstance<android.widget.Button>()
-   buttons().first{it.text.toString() in listOf("Account","অ্যাকাউন্ট")}.performClick()
+   buttons().first{it.text.toString() in listOf("Profile","প্রোফাইল")}.performClick()
    val all=views(a.findViewById(android.R.id.content));val labels=all.filterIsInstance<android.widget.TextView>().map{it.text.toString()}
    assertTrue(labels.any{it.contains("Google")});assertFalse(labels.any{it in listOf("Support","সহায়তা","Privacy policy","গোপনীয়তার নীতি")})
    assertTrue(labels.any{it in listOf("Forgot password? Contact support","পাসওয়ার্ড ভুলে গেছেন? সহায়তা নিন")})
@@ -78,10 +78,10 @@ class ProtectionTest {
     fun views(v:android.view.View):List<android.view.View> = listOf(v)+(if(v is android.view.ViewGroup)(0 until v.childCount).flatMap{views(v.getChildAt(it))}else emptyList())
     fun tap(names:List<String>){views(a.findViewById(android.R.id.content)).filterIsInstance<android.widget.Button>().first{it.text.toString() in names}.performClick()}
     repeat(3){
-     tap(listOf("Account","অ্যাকাউন্ট"))
+     tap(listOf("Profile","প্রোফাইল"))
      val labels=views(a.findViewById(android.R.id.content)).filterIsInstance<android.widget.TextView>().map{it.text.toString()}
      assertTrue(labels.contains("student@example.invalid"));assertTrue(labels.any{it in listOf("Sign out","লগআউট")})
-     tap(listOf("Library","বইঘর"))
+     tap(listOf("Home","হোম"))
     }
     TokenVault(a).clear()
    }
@@ -100,7 +100,7 @@ class ProtectionTest {
    applySnapshot.invoke(a,snapshot)
    fun views(v:android.view.View):List<android.view.View> = listOf(v)+(if(v is android.view.ViewGroup)(0 until v.childCount).flatMap{views(v.getChildAt(it))}else emptyList())
    fun tap(names:List<String>){views(a.findViewById(android.R.id.content)).filterIsInstance<android.widget.Button>().first{it.text.toString() in names}.performClick()}
-   tap(listOf("Account","অ্যাকাউন্ট"))
+   tap(listOf("Profile","প্রোফাইল"))
    val data=MainActivity::class.java.getDeclaredField("data").apply{isAccessible=true}
    val serverAt=MainActivity::class.java.getDeclaredField("serverAt").apply{isAccessible=true}
    val previous=data.get(a);val clock=serverAt.getLong(a)
@@ -111,7 +111,7 @@ class ProtectionTest {
    val brokenView:(org.json.JSONObject)->Unit={throw org.json.JSONException("Synthetic response format error")}
    deliver.invoke(a,org.json.JSONObject(),brokenView)
    assertFalse(a.isFinishing)
-   tap(listOf("Library","বইঘর"));tap(listOf("Account","অ্যাকাউন্ট"))
+   tap(listOf("Home","হোম"));tap(listOf("Profile","প্রোফাইল"))
   }}}finally{TokenVault(context).clear()}
  }
 }
