@@ -48,6 +48,7 @@ class MainActivity : ComponentActivity() {
     private val muted get()=if(dark)Color.rgb(174,185,198)else Color.rgb(86,99,114)
     private val border get()=if(dark)Color.rgb(60,74,90)else Color.rgb(207,213,220)
     private val accent get()=when(getPreferences(MODE_PRIVATE).getString("accent","sakura")){"ocean"->Color.rgb(28,106,161);"forest"->Color.rgb(26,117,91);else->Color.rgb(173,60,88)}
+    private val accentInk get()=if(!dark)accent else when(getPreferences(MODE_PRIVATE).getString("accent","sakura")){"ocean"->Color.rgb(124,198,255);"forest"->Color.rgb(117,222,183);else->Color.rgb(255,168,190)}
     private fun appearanceJson()=JSONObject().put("dark",dark).put("accent",String.format("#%06X",0xffffff and accent)).toString()
     private fun systemBars(){window.statusBarColor=paper;window.navigationBarColor=paper;window.decorView.systemUiVisibility=(if(!dark&&Build.VERSION.SDK_INT>=23)View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR else 0) or (if(!dark&&Build.VERSION.SDK_INT>=26)View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR else 0)}
     private fun themedDialog()=AlertDialog.Builder(android.view.ContextThemeWrapper(this,if(dark)android.R.style.Theme_Material_Dialog_Alert else android.R.style.Theme_Material_Light_Dialog_Alert))
@@ -190,7 +191,7 @@ class MainActivity : ComponentActivity() {
         listOf("Home","Books","Quiz","Progress","Account").forEach { page->
             val label=when(page){"Home"->tr("Home","হোম");"Books"->tr("Books","বই");"Quiz"->tr("Quiz","কুইজ");"Progress"->tr("Progress","অগ্রগতি");else->tr("Profile","প্রোফাইল")}
             val icons=mapOf("Home" to "⌂","Books" to "▣","Quiz" to "◇","Progress" to "▥","Account" to "♙")
-            nav.addView(quietButton(label){tab=page;draw()}.apply{contentDescription=label;setCompoundDrawablesWithIntrinsicBounds(null,NavIcon(icons.getValue(page),if(tab==page)accent else muted),null,null);setTextColor(if(tab==page)accent else muted);textSize=10f;setPadding(0,dp(4),0,0)},LinearLayout.LayoutParams(0,dp(56),1f))
+            nav.addView(quietButton(label){tab=page;draw()}.apply{contentDescription=label;setCompoundDrawablesWithIntrinsicBounds(null,NavIcon(icons.getValue(page),if(tab==page)accentInk else muted),null,null);setTextColor(if(tab==page)accentInk else muted);textSize=10f;setPadding(0,dp(4),0,0)},LinearLayout.LayoutParams(0,dp(56),1f))
         };root.addView(nav);setContentView(root)
         status=null
         when(tab){"About"->about();"Admin"->administration();"Rewards"->rewards();"Account"->account();"Subjects"->subjectLibrary();"Books"->bookLevels();"Quiz"->quizLibrary();"Progress"->progressScreen();"Bookmarks"->bookmarksScreen();"ReaderSettings"->readerSettings();else->home()}
@@ -219,7 +220,7 @@ class MainActivity : ComponentActivity() {
         card{setPadding(dp(14),dp(5),dp(14),dp(5));(layoutParams as LinearLayout.LayoutParams).setMargins(0,dp(5),0,dp(6));addView(text(tr("My progress","আমার অগ্রগতি"),11f).apply{setPadding(0,0,0,0)});val row=LinearLayout(this@MainActivity);row.addView(text(selected,15f).apply{setPadding(0,0,0,0)},LinearLayout.LayoutParams(0,-2,1f));row.addView(text(tr("${study.optJSONArray("learned")?.length()?:0} learned","${study.optJSONArray("learned")?.length()?:0}টি শেখা হয়েছে"),12f));addView(row)}
         val hero=FrameLayout(this)
         hero.addView(ImageView(this).apply{setImageResource(R.drawable.sakura_journey);scaleType=ImageView.ScaleType.CENTER_CROP},FrameLayout.LayoutParams(-1,dp(if(compact)90 else 150)))
-        hero.addView(text("毎日の一歩が、未来をつくる。\n"+tr("Small steps today. A brighter future tomorrow.","প্রতিদিন একটু করে, আগামীর পথে।"),13f).apply{setPadding(dp(14),dp(if(compact)42 else 96),dp(14),dp(10));setShadowLayer(8f,0f,2f,Color.BLACK)},FrameLayout.LayoutParams(-1,-1));area.addView(hero)
+        hero.addView(text("毎日の一歩が、未来をつくる。\n"+tr("Small steps today. A brighter future tomorrow.","প্রতিদিন একটু করে, আগামীর পথে।"),13f).apply{setPadding(dp(14),dp(if(compact)42 else 96),dp(14),dp(10));setTextColor(Color.WHITE);setShadowLayer(8f,0f,2f,Color.BLACK)},FrameLayout.LayoutParams(-1,-1));area.addView(hero)
         val labels=listOf("Vocabulary\n単語","Grammar\n文法","Kanji\n漢字","Books\n教科書");val colors=listOf(0xffb45374.toInt(),0xff286a9b.toInt(),0xff148665.toInt(),0xffad6c35.toInt())
         for(r in 0..1){val row=LinearLayout(this);for(c in 0..1){val i=r*2+c;row.addView(button(labels[i]){if(i==3){tab="Books";draw()}else openStudy(selected,listOf("vocab","grammar","kanji")[i])}.apply{textSize=if(compact)12f else 15f;gravity=Gravity.START or Gravity.CENTER_VERTICAL;setPadding(dp(14),dp(8),dp(8),dp(8));background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,intArrayOf(colors[i],0xff101c2c.toInt())).apply{cornerRadius=dp(14).toFloat()}},LinearLayout.LayoutParams(0,dp(if(compact)56 else 72),1f).apply{setMargins(if(c==1)dp(4) else 0,dp(7),if(c==0)dp(4) else 0,0)})};area.addView(row)}
         area.addView(quietButton(tr("Hiragana · Katakana · Numbers →","হিরাগানা · কাতাকানা · সংখ্যা →")){previewMode=false;openReader("basics/index.html",null)})
@@ -347,7 +348,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     private fun profileRow(icon:String,title:String,subtitle:String,action:()->Unit):LinearLayout=LinearLayout(this).apply{
-        gravity=Gravity.CENTER_VERTICAL;setPadding(0,dp(10),0,dp(10));addView(text(icon,24f).apply{setTextColor(accent)},LinearLayout.LayoutParams(dp(40),-2))
+        gravity=Gravity.CENTER_VERTICAL;setPadding(0,dp(10),0,dp(10));addView(text(icon,24f).apply{setTextColor(accentInk)},LinearLayout.LayoutParams(dp(40),-2))
         addView(LinearLayout(this@MainActivity).apply{orientation=LinearLayout.VERTICAL;addView(text(title,16f).apply{setPadding(0,0,0,dp(3))});addView(text(subtitle,11f).apply{setPadding(0,0,0,0);setTextColor(muted)})},LinearLayout.LayoutParams(0,-2,1f));addView(text("›",25f));isClickable=true;isFocusable=true;contentDescription=title;setOnClickListener{action()}
     }
     private fun editProfileName(){val input=EditText(this).apply{setSingleLine();setText(data.optJSONObject("user")?.optString("name")?:"")};themedDialog().setTitle(tr("Your name","আপনার নাম")).setView(input).setNegativeButton(tr("Cancel","বাতিল"),null).setPositiveButton(tr("Save","রাখুন")){_,_->async({api.request("/profile","PATCH",JSONObject().put("name",input.text.toString().trim()))}){refresh()}}.show()}
