@@ -119,11 +119,11 @@ jobs:
         run: |
           ./gradlew assembleDebug
           mkdir -p build/live-delivery
-          cp app/build/outputs/apk/debug/app-debug.apk build/live-delivery/Nihongo-Path-Books-1.9.0.apk
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree build/live-delivery/Nihongo-Path-Books-1.9.0.apk AndroidManifest.xml | grep -F 'ca-app-pub-3728341118830943~7145978290'
-          python3 -c "import zipfile; z=zipfile.ZipFile('build/live-delivery/Nihongo-Path-Books-1.9.0.apk'); assert any(b'ca-app-pub-3728341118830943/5055001578' in z.read(n) for n in z.namelist() if n.endswith('.dex')), 'Owner rewarded unit missing'"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify build/live-delivery/Nihongo-Path-Books-1.9.0.apk
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging build/live-delivery/Nihongo-Path-Books-1.9.0.apk | head -1
+          cp app/build/outputs/apk/debug/app-debug.apk build/live-delivery/Nihongo-Path-Books-1.9.1.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree build/live-delivery/Nihongo-Path-Books-1.9.1.apk AndroidManifest.xml | grep -F 'ca-app-pub-3728341118830943~7145978290'
+          python3 -c "import zipfile; z=zipfile.ZipFile('build/live-delivery/Nihongo-Path-Books-1.9.1.apk'); assert any(b'ca-app-pub-3728341118830943/5055001578' in z.read(n) for n in z.namelist() if n.endswith('.dex')), 'Owner rewarded unit missing'"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify build/live-delivery/Nihongo-Path-Books-1.9.1.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging build/live-delivery/Nihongo-Path-Books-1.9.1.apk | head -1
         working-directory: android-app
       - uses: actions/upload-artifact@v4
         with:
@@ -139,7 +139,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {api: 23, arch: x86, target: default}
+          - {api: 24, arch: x86, target: default}
           - {api: 29, arch: x86_64, target: google_apis}
           - {api: 33, arch: x86_64, target: google_apis}
           - {api: 35, arch: x86_64, target: google_apis}
@@ -192,7 +192,7 @@ jobs:
             adb exec-out run-as online.devnazu.books cat files/preferences-preview.png > app/build/reports/androidTests/preferences-preview.png
             python3 -c "from pathlib import Path; p=Path('app/build/reports/androidTests/auth-preview.png'); assert p.read_bytes().startswith(bytes.fromhex('89504e470d0a1a0a')), 'Auth capture is not a PNG'"
             if adb shell pm path online.devnazu.books | grep -q '^package:'; then adb uninstall online.devnazu.books; fi
-            adb install ../delivered-apk/Nihongo-Path-Books-1.9.0.apk
+            adb install ../delivered-apk/Nihongo-Path-Books-1.9.1.apk
             adb logcat -c
             adb shell am start -W -n online.devnazu.books/.MainActivity
             sleep 5
