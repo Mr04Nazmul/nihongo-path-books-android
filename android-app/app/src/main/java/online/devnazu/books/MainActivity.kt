@@ -205,6 +205,7 @@ class MainActivity : ComponentActivity() {
             addView(button(tr("Read 5 free →","৫টি ফ্রি পড়ুন →")){previewMode=true;openReader("study.html?level=$selected&section=$kind&preview=1",selected)})
             addView(button(tr("Read complete book →","সম্পূর্ণ বই পড়ুন →")){previewMode=false;if(expiry(selected)>now())openReader("study.html?level=$selected&section=$kind",selected)else{tab=if(vault.read().isEmpty())"Account" else "Rewards";draw()}})
         }}
+        area.addView(button(tr("Original PDF book →","মূল PDF বই →")){previewMode=false;openPdfBook(selected)})
         if(selected=="N5")area.addView(button(tr("N5 Listening","N5 লিসেনিং")){previewMode=false;openReader("listening.html?level=N5",selected)})
         area.addView(button(tr("Unlock with ads →","বিজ্ঞাপন দেখে খুলুন →")){tab=if(vault.read().isEmpty())"Account" else "Rewards";draw()})
     }
