@@ -45,5 +45,19 @@
   "limitations": [
     "Full signed-in unlock / live AdMob delivery was not exercised.",
     "Counts and rendering checked; this is not a linguistic accuracy review."
-  ]
+  ],
+  "source_gaps": {
+    "main_meanings_missing": 0,
+    "grammar_readings_missing": 0,
+    "example_readings_missing": 0,
+    "example_meanings_missing": 2,
+    "android_display_corrections": {
+      "own-n4-kanji-0146 / 進む": "এগিয়ে যাওয়া; অগ্রসর হওয়া",
+      "own-n4-kanji-0180 / 深い": "গভীর"
+    }
+  },
+  "separate_collection_excluded": {
+    "EXTRA_vocab": 4109,
+    "reason": "Separate unclassified website collection outside the agreed N5-N2 curriculum and reward levels"
+  }
 }

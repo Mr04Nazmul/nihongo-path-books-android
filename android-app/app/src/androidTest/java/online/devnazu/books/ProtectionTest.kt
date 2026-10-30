@@ -18,11 +18,8 @@ class ProtectionTest {
    scenario.onActivity{a->MainActivity::class.java.getDeclaredMethod("appearanceDialog").apply{isAccessible=true}.invoke(a)}
    instrumentation.waitForIdleSync()
    scenario.onActivity{a->val dialog=MainActivity::class.java.getDeclaredField("appearanceWindow").apply{isAccessible=true}.get(a) as android.app.Dialog;val decor=dialog.window!!.decorView;val bitmap=android.graphics.Bitmap.createBitmap(decor.width,decor.height,android.graphics.Bitmap.Config.ARGB_8888);decor.draw(android.graphics.Canvas(bitmap));java.io.File(a.filesDir,"glass-preview.png").outputStream().use{bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)};bitmap.recycle()}
-   val device=instrumentation.uiAutomation
-   val root=device.rootInActiveWindow
-   assertNotNull(root)
-   fun find(n:android.view.accessibility.AccessibilityNodeInfo):android.view.accessibility.AccessibilityNodeInfo?{if(n.text?.toString()?.contains("লাইট")==true||n.text?.toString()?.contains("Light")==true)return n;for(i in 0 until n.childCount){val child=n.getChild(i)?:continue;val result=find(child);if(result!=null)return result};return null}
-   val light=find(root);assertNotNull(light);assertTrue(light!!.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK));Thread.sleep(600)
+   scenario.onActivity{a->val dialog=MainActivity::class.java.getDeclaredField("appearanceWindow").apply{isAccessible=true}.get(a) as android.app.Dialog;assertTrue(dialog.isShowing);assertTrue(dialog.window!!.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0);views(dialog.window!!.decorView).filterIsInstance<android.widget.Button>().first{it.text.contains("লাইট")||it.text.contains("Light")}.performClick()}
+   Thread.sleep(600)
    assertEquals("light",context.getSharedPreferences("MainActivity",android.content.Context.MODE_PRIVATE).getString("appearance","dark"))
   };context.getSharedPreferences("MainActivity",android.content.Context.MODE_PRIVATE).edit().putString("appearance","dark").commit()
  }
