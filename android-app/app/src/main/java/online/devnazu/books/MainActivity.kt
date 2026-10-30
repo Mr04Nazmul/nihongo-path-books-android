@@ -432,7 +432,7 @@ class MainActivity : ComponentActivity() {
             override fun onPageFinished(v:WebView,url:String){
                 if(url.contains("/study.html")||url.contains("/pdf-reader.html")){
                     val restored=data.optJSONObject("studyState")
-                    if(restored!=null&&restored.length()>0)v.evaluateJavascript("Object.assign(state,JSON.parse(${JSONObject.quote(restored.toString())}));state.saved??=[];localStorage.setItem('nihongo-path',JSON.stringify(state));if(typeof data!=='undefined'&&data.vocab&&typeof render==='function')render();",null)
+                    if(restored!=null&&restored.length()>0)v.evaluateJavascript("Object.assign(state,JSON.parse(${JSONObject.quote(restored.toString())}));state.saved=state.saved||[];localStorage.setItem('nihongo-path',JSON.stringify(state));if(typeof data!=='undefined'&&data.vocab&&typeof render==='function')render();",null)
                     return
                 }
             }

@@ -47,10 +47,12 @@ jobs:
         with:
           packages: 'platform-tools platforms;android-36 build-tools;35.0.0'
       - uses: gradle/actions/setup-gradle@v4
-      - run: chmod +x gradlew && ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest --stacktrace
-        working-directory: android-app
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
+      - run: npm ci
+        working-directory: android-app/backend
+      - run: chmod +x gradlew && ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest --stacktrace
+        working-directory: android-app
       - run: node --test android-app/test/free-preview.test.cjs
       - name: Verify APK signature and alignment
         run: |
@@ -147,6 +149,10 @@ jobs:
       - uses: actions/setup-java@v4
         with: {distribution: temurin, java-version: '17'}
       - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci
+        working-directory: android-app/backend
       - uses: actions/download-artifact@v4
         with:
           name: Nihongo-Path-Books-owner-AdMob-APK
