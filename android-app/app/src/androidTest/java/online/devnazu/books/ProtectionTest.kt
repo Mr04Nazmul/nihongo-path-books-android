@@ -50,7 +50,7 @@ class ProtectionTest {
    capture("library-preview.png")
    scenario.onActivity{a->
     fun views(v:android.view.View):List<android.view.View> = listOf(v)+(if(v is android.view.ViewGroup)(0 until v.childCount).flatMap{views(v.getChildAt(it))}else emptyList())
-    views(a.window.decorView).filterIsInstance<android.widget.Button>().first{it.text.toString() in listOf("Rewards","ক্রেডিট")}.performClick()
+    views(a.window.decorView).filterIsInstance<android.widget.Button>().first{it.contentDescription?.toString() in listOf("Rewards","ক্রেডিট")}.performClick()
    }
    capture("rewards-preview.png")
   }

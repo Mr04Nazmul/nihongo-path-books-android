@@ -44,6 +44,7 @@ class MainActivity : ComponentActivity() {
     private val ink=Color.rgb(248,239,231)
     private val paper=Color.rgb(7,13,20)
     private var previewMode=false
+    private val compact get()=resources.displayMetrics.widthPixels/resources.displayMetrics.density<320
     private val ticker=object:Runnable { override fun run(){
         if(web!=null && !previewMode && readerLevel!=null && now()>=readerExpiry){closeReader();message(tr("Access expired. Unused credits are safe.","সময় শেষ হয়েছে। অব্যবহৃত ক্রেডিট রাখা হয়েছে।"));refresh()}
         findViewById<TextView>(R.id.access_countdown)?.text=accessText(selected)
@@ -165,10 +166,10 @@ class MainActivity : ComponentActivity() {
         root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(paper);setPadding(dp(16),dp(25),dp(16),dp(8))}
         val head=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,0,0,dp(8))}
         head.addView(ImageView(this).apply{setImageResource(R.drawable.ic_books);scaleType=ImageView.ScaleType.CENTER_CROP},LinearLayout.LayoutParams(dp(34),dp(34)).apply{setMargins(0,0,dp(10),0)})
-        head.addView(text("Nihongo\nPath Books",14f).apply{typeface=android.graphics.Typeface.create("serif",android.graphics.Typeface.BOLD)},LinearLayout.LayoutParams(0,-2,1f))
-        head.addView(quietButton(tr("Rewards","ক্রেডিট")){tab="Rewards";draw()},LinearLayout.LayoutParams(-2,dp(40)))
-        head.addView(quietButton("ⓘ"){tab="About";draw()},LinearLayout.LayoutParams(dp(36),dp(40)))
-        head.addView(quietButton(if(bn)"EN" else "বাংলা"){bn=!bn;draw()},LinearLayout.LayoutParams(dp(42),dp(40)));root.addView(head)
+        head.addView(text("Nihongo\nPath Books",if(compact)12f else 14f).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END;typeface=android.graphics.Typeface.create("serif",android.graphics.Typeface.BOLD)},LinearLayout.LayoutParams(0,-2,1f))
+        head.addView(quietButton("♛"){tab="Rewards";draw()}.apply{contentDescription=tr("Rewards","ক্রেডিট");textSize=20f;setTextColor(Color.rgb(231,181,76))},LinearLayout.LayoutParams(dp(30),dp(40)))
+        head.addView(quietButton("ⓘ"){tab="About";draw()},LinearLayout.LayoutParams(dp(28),dp(40)))
+        head.addView(quietButton(if(bn)"EN" else "বাংলা"){bn=!bn;draw()},LinearLayout.LayoutParams(dp(32),dp(40)));root.addView(head)
         val scroll=ScrollView(this);area=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL};scroll.addView(area);root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
         val nav=LinearLayout(this).apply{setPadding(0,dp(8),0,0)}
         listOf("Home","Books","Quiz","Progress","Account").forEach { page->
@@ -198,14 +199,14 @@ class MainActivity : ComponentActivity() {
         override fun getIntrinsicWidth()=dp(26);override fun getIntrinsicHeight()=dp(29)
     }
     private fun home(){
-        add("こんにちは！",23f);add(tr("Let's continue your Japanese journey","চলুন, জাপানি শেখার পথে এগিয়ে যাই"),12f)
+        area.addView(text("こんにちは！",if(compact)20f else 23f).apply{setPadding(0,dp(2),0,0)});area.addView(text(tr("Let's continue your Japanese journey","চলুন, জাপানি শেখার পথে এগিয়ে যাই"),11f).apply{setPadding(0,dp(3),0,dp(5))})
         val study=data.optJSONObject("studyState")?:JSONObject()
-        card{setPadding(dp(14),dp(8),dp(14),dp(8));addView(text(tr("My progress","আমার অগ্রগতি"),12f));val row=LinearLayout(this@MainActivity);row.addView(text(selected,17f),LinearLayout.LayoutParams(0,-2,1f));row.addView(text(tr("${study.optJSONArray("learned")?.length()?:0} learned","${study.optJSONArray("learned")?.length()?:0}টি শেখা হয়েছে"),12f));addView(row)}
+        card{setPadding(dp(14),dp(5),dp(14),dp(5));(layoutParams as LinearLayout.LayoutParams).setMargins(0,dp(5),0,dp(6));addView(text(tr("My progress","আমার অগ্রগতি"),11f).apply{setPadding(0,0,0,0)});val row=LinearLayout(this@MainActivity);row.addView(text(selected,15f).apply{setPadding(0,0,0,0)},LinearLayout.LayoutParams(0,-2,1f));row.addView(text(tr("${study.optJSONArray("learned")?.length()?:0} learned","${study.optJSONArray("learned")?.length()?:0}টি শেখা হয়েছে"),12f));addView(row)}
         val hero=FrameLayout(this)
-        hero.addView(ImageView(this).apply{setImageResource(R.drawable.sakura_journey);scaleType=ImageView.ScaleType.CENTER_CROP},FrameLayout.LayoutParams(-1,dp(150)))
-        hero.addView(text("毎日の一歩が、未来をつくる。\n"+tr("Small steps today. A brighter future tomorrow.","প্রতিদিন একটু করে, আগামীর পথে।"),13f).apply{setPadding(dp(14),dp(96),dp(14),dp(10));setShadowLayer(8f,0f,2f,Color.BLACK)},FrameLayout.LayoutParams(-1,-1));area.addView(hero)
+        hero.addView(ImageView(this).apply{setImageResource(R.drawable.sakura_journey);scaleType=ImageView.ScaleType.CENTER_CROP},FrameLayout.LayoutParams(-1,dp(if(compact)90 else 150)))
+        hero.addView(text("毎日の一歩が、未来をつくる。\n"+tr("Small steps today. A brighter future tomorrow.","প্রতিদিন একটু করে, আগামীর পথে।"),13f).apply{setPadding(dp(14),dp(if(compact)42 else 96),dp(14),dp(10));setShadowLayer(8f,0f,2f,Color.BLACK)},FrameLayout.LayoutParams(-1,-1));area.addView(hero)
         val labels=listOf("Vocabulary\n単語","Grammar\n文法","Kanji\n漢字","Books\n教科書");val colors=listOf(0xffb45374.toInt(),0xff286a9b.toInt(),0xff148665.toInt(),0xffad6c35.toInt())
-        for(r in 0..1){val row=LinearLayout(this);for(c in 0..1){val i=r*2+c;row.addView(button(labels[i]){if(i==3){tab="Books";draw()}else openStudy(selected,listOf("vocab","grammar","kanji")[i])}.apply{textSize=15f;gravity=Gravity.START or Gravity.CENTER_VERTICAL;setPadding(dp(14),dp(8),dp(8),dp(8));background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,intArrayOf(colors[i],0xff101c2c.toInt())).apply{cornerRadius=dp(14).toFloat()}},LinearLayout.LayoutParams(0,dp(72),1f).apply{setMargins(if(c==1)dp(4) else 0,dp(7),if(c==0)dp(4) else 0,0)})};area.addView(row)}
+        for(r in 0..1){val row=LinearLayout(this);for(c in 0..1){val i=r*2+c;row.addView(button(labels[i]){if(i==3){tab="Books";draw()}else openStudy(selected,listOf("vocab","grammar","kanji")[i])}.apply{textSize=if(compact)12f else 15f;gravity=Gravity.START or Gravity.CENTER_VERTICAL;setPadding(dp(14),dp(8),dp(8),dp(8));background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,intArrayOf(colors[i],0xff101c2c.toInt())).apply{cornerRadius=dp(14).toFloat()}},LinearLayout.LayoutParams(0,dp(if(compact)56 else 72),1f).apply{setMargins(if(c==1)dp(4) else 0,dp(7),if(c==0)dp(4) else 0,0)})};area.addView(row)}
         area.addView(quietButton(tr("Hiragana · Katakana · Numbers →","হিরাগানা · কাতাকানা · সংখ্যা →")){previewMode=false;openReader("basics/index.html",null)})
     }
     private fun openStudy(level:String,kind:String){selected=level;previewMode=expiry(level)<=now();openReader("study.html?level=$level&section=$kind"+if(previewMode)"&preview=1" else "",level)}
