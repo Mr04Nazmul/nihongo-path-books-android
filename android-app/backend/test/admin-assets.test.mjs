@@ -1,0 +1,16 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {PGlite} from '@electric-sql/pglite';import {readFile} from 'node:fs/promises';import {randomUUID} from 'node:crypto';
+test('Reviewed publishing keeps immutable snapshots; students and unreviewed audio cannot publish',async()=>{
+ const db=new PGlite();await db.exec('create role anon;create role authenticated;create role service_role;');for(const f of ['edge-schema.sql','edge-backend.sql','admin-assets.sql'])await db.exec(await readFile(new URL('../../supabase/sql/'+f,import.meta.url),'utf8'));
+ const id=randomUUID(),other=randomUUID(),hash='a'.repeat(64),otherHash='b'.repeat(64),review={status:'verified',reviewer:'Fixture reviewer',notes:'Original fixture checked manually',japaneseChecked:true,bengaliChecked:true,appDistributionRights:true};
+ const main=async(a,p)=>(await db.query('select public.nihongo_books_api($1,$2) as d',[a,p])).rows[0].d,assets=async(a,p)=>(await db.query('select public.nihongo_books_assets_api($1,$2) as d',[a,p])).rows[0].d;
+ try{
+  await main('login',{id,email:id+'@example.test',confirmed:true,sessionHash:hash});await main('login',{id:other,email:other+'@example.test',confirmed:true,sessionHash:otherHash});await db.query("update books.users set role='admin' where id=$1",[id]);await db.query("insert into books.unlocks values($1,'N5',now()+interval '1 hour')",[other]);
+  await main('admin_chapter',{tokenHash:hash,id:'test-chapter',level:'N5',kind:'vocab',title:'Fixture',position:1,entries:[{id:'word-1',word:'山',reading:'やま',meaning:'পাহাড়'}]});
+  assert.equal((await assets('publish_chapter',{tokenHash:otherHash,id:'test-chapter',review})).status,403);assert.equal((await assets('publish_chapter',{tokenHash:hash,id:'test-chapter',review:{status:'pending'}})).status,409);
+  assert.equal((await assets('publish_chapter',{tokenHash:hash,id:'test-chapter',review})).ok,true);let p=await assets('published',{tokenHash:otherHash,level:'N5'});assert.equal(p.chapters[0].entries[0].word,'山');
+  await main('admin_chapter',{tokenHash:hash,id:'test-chapter',level:'N5',kind:'vocab',title:'Draft',entries:[]});p=await assets('published',{tokenHash:otherHash,level:'N5'});assert.equal(p.chapters[0].entries[0].word,'山');assert.equal((await assets('published',{tokenHash:otherHash,level:'N1'})).status,403);
+  const upload='upload-'+randomUUID();assert.equal((await assets('audio_uploaded',{tokenHash:hash,id:upload,storagePath:'n5/'+randomUUID()+'.mp3',sha256:'f'.repeat(64),size:100})).ok,true);assert.equal((await assets('review_audio',{tokenHash:hash,id:upload,lessonId:'mlc-n5-l1-01',published:true,review,rights:{}})).status,409);
+  await assets('review_audio',{tokenHash:hash,id:upload,lessonId:'mlc-n5-l1-01',published:true,review,rights:{appDistribution:true,audioHosting:true,advertising:true}});assert.equal((await assets('published',{tokenHash:otherHash,level:'N5'})).audio.length,1);
+  await assets('unpublish_chapter',{tokenHash:hash,id:'test-chapter'});assert.equal((await assets('published',{tokenHash:otherHash,level:'N5'})).chapters.length,0);assert.equal((await db.query('select count(*)::int as n from books.chapter_revisions')).rows[0].n,1);
+ }finally{await db.close()}
+});

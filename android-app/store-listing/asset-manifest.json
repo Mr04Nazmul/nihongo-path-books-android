@@ -1,0 +1,59 @@
+{
+  "app": "Nihongo Path Books",
+  "capture_commit": "f838e21b4a8322ed54caa50954d07baa8b0874a7",
+  "workflow_run": 40973377212,
+  "artifact_id": 12942300299,
+  "device": "Android API35 emulator",
+  "all_six_ci_jobs": "passed",
+  "screenshot_processing": "Lossless PNG export to RGB; no UI edits or upscaling",
+  "files": [
+    {
+      "file": "01-app-icon-512.png",
+      "width": 512,
+      "height": 512,
+      "mode": "RGBA",
+      "bytes": 6024,
+      "sha256": "7688dd3b2915def25ee527078652fa231aaa062e904da24f6fb8401bf9d6e63d"
+    },
+    {
+      "file": "02-feature-graphic-1024x500.png",
+      "width": 1024,
+      "height": 500,
+      "mode": "RGB",
+      "bytes": 41858,
+      "sha256": "0e26c90d1a0d535670f0e764b744af0a39c90fd21211e01b9fcc3e4c9a372e83"
+    },
+    {
+      "file": "03-phone-library.png",
+      "width": 1080,
+      "height": 1920,
+      "mode": "RGB",
+      "bytes": 147627,
+      "sha256": "bf98ce49c94e22280ae9223254a4f78d2e2d8ee46e9be15ed991d908e60ca595"
+    },
+    {
+      "file": "04-phone-rewards.png",
+      "width": 1080,
+      "height": 1920,
+      "mode": "RGB",
+      "bytes": 179835,
+      "sha256": "78bd2b07cf1ffbaee30faffc93e9ec156e5867425da73e6d52dd9c1c2ca565f8"
+    },
+    {
+      "file": "05-phone-login.png",
+      "width": 1080,
+      "height": 1920,
+      "mode": "RGB",
+      "bytes": 158718,
+      "sha256": "6fdea0b760744c234d7298957e908b129ab33adc2302df8cfaedf383ca7cd438"
+    },
+    {
+      "file": "06-phone-signup.png",
+      "width": 1080,
+      "height": 1920,
+      "mode": "RGB",
+      "bytes": 149893,
+      "sha256": "a358faa2286e35440cdd9f1ea603badeb6a022fc31b0a1fed5cc62a6893c60e6"
+    }
+  ]
+}

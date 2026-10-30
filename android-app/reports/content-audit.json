@@ -1,0 +1,67 @@
+{
+  "lexicalVerification": "PENDING: structural checks do not verify meanings or readings",
+  "books": {
+    "N5": {
+      "entries": {
+        "vocab": 1052,
+        "grammar": 110,
+        "kanji": 110
+      },
+      "sha256": "fa17fbf8a43063bf2889aec0954a36898ede583cba0d92eff88b250c9b3e1057"
+    },
+    "N4": {
+      "entries": {
+        "vocab": 1128,
+        "grammar": 113,
+        "kanji": 200
+      },
+      "sha256": "b6c58e7cd60eb3f0d1413a398c8c596614c644a4f1a5d89f3e5751ff651605b8"
+    },
+    "N3": {
+      "entries": {
+        "vocab": 1260,
+        "grammar": 144,
+        "kanji": 336
+      },
+      "sha256": "9b321c84441b1bb81c6a6c2da6cbc1596c64b7330df3044cc294c684db47120f"
+    },
+    "N2": {
+      "entries": {
+        "vocab": 1197,
+        "grammar": 208,
+        "kanji": 400
+      },
+      "sha256": "ff016459a91b146bd916d5b34ca99c18b717df7ec88215697a88fad0ba687445"
+    }
+  },
+  "issues": [],
+  "listening": {
+    "level": "N5",
+    "lessons": 100,
+    "audioFiles": 99,
+    "rights": {
+      "verified": false,
+      "ownerAttested": true,
+      "audioRedistribution": true,
+      "transcriptRedistribution": true,
+      "translations": true,
+      "publicWebsite": true,
+      "publicRepository": true,
+      "advertisingEnabled": false,
+      "commercialUse": false,
+      "showSourceCredit": false,
+      "publisher": "Hossain Najmul",
+      "evidence": {
+        "method": "owner-reported-phone-permission",
+        "reference": "Project owner confirmation in conversation on 2026-10-29",
+        "grantor": "MLC representative, as reported by the website owner; not independently verified",
+        "grantee": "Owner of devnazu.online",
+        "recordedAt": "2026-10-29",
+        "scope": "The website owner reports phone permission to add all collected listening materials directly and republish with the site owner name, without source credit. Audio, scripts and derivative learning presentation included in the owner attestation.",
+        "creditInstruction": "The owner reports that source credit is waived. Site publisher identity is shown; original authorship is not reassigned."
+      }
+    },
+    "devicePlayback": "UNVERIFIED",
+    "otherLevels": "NOT INCLUDED"
+  }
+}

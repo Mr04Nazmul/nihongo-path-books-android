@@ -1,0 +1,117 @@
+package online.devnazu.books
+import android.view.WindowManager
+import androidx.test.core.app.ActivityScenario
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.Test
+import org.junit.Assert.*
+import org.junit.runner.RunWith
+@RunWith(AndroidJUnit4::class)
+class ProtectionTest {
+ @org.junit.Before fun skipIntroductionForNavigationTests(){
+  androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.getSharedPreferences("MainActivity",android.content.Context.MODE_PRIVATE).edit().putBoolean("introduced",true).commit()
+ }
+
+ @Test fun secureWindowAndLaunch(){ActivityScenario.launch(MainActivity::class.java).use{scenario->scenario.onActivity{activity->assertTrue(activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0);assertNotNull(activity.findViewById<android.view.View>(android.R.id.content))}}}
+ @Test fun accountHasGoogleAndMaskedPassword(){
+  ActivityScenario.launch(MainActivity::class.java).use{scenario->scenario.onActivity{a->
+   fun views(v:android.view.View):List<android.view.View> = listOf(v)+(if(v is android.view.ViewGroup)(0 until v.childCount).flatMap{views(v.getChildAt(it))}else emptyList())
+   fun buttons()=views(a.findViewById(android.R.id.content)).filterIsInstance<android.widget.Button>()
+   buttons().first{it.text.toString() in listOf("Account","অ্যাকাউন্ট")}.performClick()
+   val all=views(a.findViewById(android.R.id.content));val labels=all.filterIsInstance<android.widget.TextView>().map{it.text.toString()}
+   assertTrue(labels.any{it.contains("Google")});assertFalse(labels.any{it in listOf("Support","সহায়তা","Privacy policy","গোপনীয়তার নীতি")})
+   assertTrue(labels.any{it in listOf("Forgot password? Contact support","পাসওয়ার্ড ভুলে গেছেন? সহায়তা নিন")})
+   assertFalse(labels.any{it.contains("Resend confirmation")||it.contains("আবার confirmation")||it.contains("Repository")})
+   val password=all.filterIsInstance<android.widget.EditText>().first{it.inputType and android.text.InputType.TYPE_MASK_VARIATION==android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD};assertTrue(password.transformationMethod is android.text.method.PasswordTransformationMethod)
+  };androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().waitForIdleSync();scenario.onActivity{a->
+   val decor=a.window.decorView;val bitmap=android.graphics.Bitmap.createBitmap(decor.width,decor.height,android.graphics.Bitmap.Config.ARGB_8888);decor.draw(android.graphics.Canvas(bitmap));java.io.File(a.filesDir,"auth-preview.png").outputStream().use{bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)};bitmap.recycle()
+   fun descendants(v:android.view.View):List<android.view.View> = listOf(v)+(if(v is android.view.ViewGroup)(0 until v.childCount).flatMap{descendants(v.getChildAt(it))}else emptyList())
+   descendants(decor).filterIsInstance<android.widget.Button>().first{it.text.toString() in listOf("New here? Create an account","নতুন? অ্যাকাউন্ট খুলুন")}.performClick()
+  };androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().waitForIdleSync();scenario.onActivity{a->
+   val decor=a.window.decorView
+   assertEquals(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE,a.window.attributes.softInputMode and WindowManager.LayoutParams.SOFT_INPUT_MASK_ADJUST)
+   val bitmap=android.graphics.Bitmap.createBitmap(decor.width,decor.height,android.graphics.Bitmap.Config.ARGB_8888);decor.draw(android.graphics.Canvas(bitmap));java.io.File(a.filesDir,"signup-preview.png").outputStream().use{bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)};bitmap.recycle()
+  }}
+ }
+ @Test fun storeListingScreensAreActualAppViews(){
+  val context=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+  TokenVault(context).clear()
+  ActivityScenario.launch(MainActivity::class.java).use{scenario->
+   fun capture(file:String){
+    androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+    scenario.onActivity{a->
+     assertTrue(a.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0)
+     val decor=a.window.decorView
+     val bitmap=android.graphics.Bitmap.createBitmap(decor.width,decor.height,android.graphics.Bitmap.Config.ARGB_8888)
+     decor.draw(android.graphics.Canvas(bitmap))
+     java.io.File(a.filesDir,file).outputStream().use{bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
+     bitmap.recycle()
+    }
+   }
+   capture("library-preview.png")
+   scenario.onActivity{a->
+    fun views(v:android.view.View):List<android.view.View> = listOf(v)+(if(v is android.view.ViewGroup)(0 until v.childCount).flatMap{views(v.getChildAt(it))}else emptyList())
+    views(a.window.decorView).filterIsInstance<android.widget.Button>().first{it.text.toString() in listOf("Rewards","ক্রেডিট")}.performClick()
+   }
+   capture("rewards-preview.png")
+  }
+ }
+ @Test fun secureContentNotVisibleInScreenCapture(){
+  ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+   scenario.onActivity { a -> assertTrue(a.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0) }
+   val automation=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation
+   automation.waitForIdle(1000,10000)
+   val shot=automation.takeScreenshot() ?: return
+   try {
+    val points=listOf(0.3f,0.4f,0.5f,0.6f,0.7f)
+    for(x in points)for(y in points){val pixel=shot.getPixel((shot.width*x).toInt(),(shot.height*y).toInt());assertTrue("Protected app pixels visible in capture",android.graphics.Color.red(pixel)<8&&android.graphics.Color.green(pixel)<8&&android.graphics.Color.blue(pixel)<8)}
+   }finally{shot.recycle()}
+  }
+ }
+ @Test fun signedInAccountCanRenderAndNavigate(){
+  val context=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+  TokenVault(context).clear()
+  ActivityScenario.launch(MainActivity::class.java).use{scenario->
+   scenario.onActivity{a->
+    TokenVault(a).save("a".repeat(43))
+    val data=MainActivity::class.java.getDeclaredField("data").apply{isAccessible=true}
+    data.set(a,org.json.JSONObject("""{"user":{"id":"00000000-0000-4000-8000-000000000001","name":"Test student","email":"student@example.invalid","role":"student"},"balances":[],"unlocks":[],"tiers":[],"rewards":[],"redemptions":[],"studyState":{}}"""))
+    fun views(v:android.view.View):List<android.view.View> = listOf(v)+(if(v is android.view.ViewGroup)(0 until v.childCount).flatMap{views(v.getChildAt(it))}else emptyList())
+    fun tap(names:List<String>){views(a.findViewById(android.R.id.content)).filterIsInstance<android.widget.Button>().first{it.text.toString() in names}.performClick()}
+    repeat(3){
+     tap(listOf("Account","অ্যাকাউন্ট"))
+     val labels=views(a.findViewById(android.R.id.content)).filterIsInstance<android.widget.TextView>().map{it.text.toString()}
+     assertTrue(labels.contains("student@example.invalid"));assertTrue(labels.any{it in listOf("Sign out","লগআউট")})
+     tap(listOf("Library","বইঘর"))
+    }
+    TokenVault(a).clear()
+   }
+  }
+ }
+ @Test fun postgresSnapshotAndResponseErrorsKeepActivityAlive(){
+  val context=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+  TokenVault(context).clear()
+  try{ActivityScenario.launch(MainActivity::class.java).use{scenario->scenario.onActivity{a->
+   TokenVault(a).save("a".repeat(43))
+   val postgresTime="2026-10-29T14:29:09.25706+00:00"
+   android.util.Log.i("BooksClockTest","legacyNumericOffsetSupported="+runCatching{java.time.Instant.parse(postgresTime)}.isSuccess)
+   assertEquals(1793284149257L,ServerTime.millis(postgresTime))
+   val snapshot=org.json.JSONObject("""{"serverTime":"2026-10-29T14:29:09.25706+00:00","user":{"id":"00000000-0000-4000-8000-000000000001","name":"","email":"student@example.invalid","role":"student"},"balances":[{"level":"N5","credits":5}],"unlocks":[{"level":"N5","expires_at":"2099-01-01T00:00:00.000001+00:00"}],"tiers":[],"rewards":[],"redemptions":[],"studyState":{}}""")
+   val applySnapshot=MainActivity::class.java.getDeclaredMethod("applySnapshot",org.json.JSONObject::class.java).apply{isAccessible=true}
+   applySnapshot.invoke(a,snapshot)
+   fun views(v:android.view.View):List<android.view.View> = listOf(v)+(if(v is android.view.ViewGroup)(0 until v.childCount).flatMap{views(v.getChildAt(it))}else emptyList())
+   fun tap(names:List<String>){views(a.findViewById(android.R.id.content)).filterIsInstance<android.widget.Button>().first{it.text.toString() in names}.performClick()}
+   tap(listOf("Account","অ্যাকাউন্ট"))
+   val data=MainActivity::class.java.getDeclaredField("data").apply{isAccessible=true}
+   val serverAt=MainActivity::class.java.getDeclaredField("serverAt").apply{isAccessible=true}
+   val previous=data.get(a);val clock=serverAt.getLong(a)
+   val deliver=MainActivity::class.java.getDeclaredMethod("deliver",org.json.JSONObject::class.java,kotlin.jvm.functions.Function1::class.java).apply{isAccessible=true}
+   val brokenResponse:(org.json.JSONObject)->Unit={applySnapshot.invoke(a,it)}
+   deliver.invoke(a,org.json.JSONObject().put("serverTime","bad-clock"),brokenResponse)
+   assertSame(previous,data.get(a));assertEquals(clock,serverAt.getLong(a));assertFalse(a.isFinishing);assertFalse(a.isDestroyed)
+   val brokenView:(org.json.JSONObject)->Unit={throw org.json.JSONException("Synthetic response format error")}
+   deliver.invoke(a,org.json.JSONObject(),brokenView)
+   assertFalse(a.isFinishing)
+   tap(listOf("Library","বইঘর"));tap(listOf("Account","অ্যাকাউন্ট"))
+  }}}finally{TokenVault(context).clear()}
+ }
+}

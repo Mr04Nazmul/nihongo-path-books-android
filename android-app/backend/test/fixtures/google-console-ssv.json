@@ -1,0 +1,10 @@
+{
+  "capturedAt": "2026-10-29",
+  "note": "Google publisher-console synthetic verification probe; no real user, session or earned reward. Public verification key retained for regression testing only.",
+  "query": "ad_network=5450213213286189855&ad_unit=1234567890&reward_amount=1&reward_item=JLPT+credit&timestamp=1793275213428&transaction_id=123456789&signature=MEUCIQD-oVX1HEfBfxAMGrVMO_Ni4usLtOnQKl7-FFatEjkJrwIgFPUy4lZUiSLk2UL0j-cvJFBACtu4kc4gbUi8-FCyY5E&key_id=3335741209",
+  "key": {
+    "keyId": 3335741209,
+    "pem": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE+nzvoGqvDeB9+SzE6igTl7TyK4JB\nbglwir9oTcQta8NuG26ZpZFxt+F2NDk7asTE6/2Yc8i1ATcGIqtuS5hv0Q==\n-----END PUBLIC KEY-----",
+    "base64": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE+nzvoGqvDeB9+SzE6igTl7TyK4JBbglwir9oTcQta8NuG26ZpZFxt+F2NDk7asTE6/2Yc8i1ATcGIqtuS5hv0Q=="
+  }
+}

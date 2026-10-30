@@ -1,0 +1,188 @@
+name: Android app · build and verify
+on:
+  push:
+    branches: [main]
+    paths: ['android-app/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: books
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: books_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      AUTH_PROVIDER: legacy
+      DATABASE_URL: postgresql://books:ci-only-password@localhost:5432/books_test
+      TEST_DATABASE_URL: postgresql://books:ci-only-password@localhost:5432/books_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm, cache-dependency-path: android-app/backend/package-lock.json}
+      - run: npm ci
+        working-directory: android-app/backend
+      - run: npm run migrate && npm test && npm run build:neon
+        working-directory: android-app/backend
+  apk:
+    runs-on: ubuntu-24.04
+    env:
+      BOOKS_API_URL: ${{ vars.SUPABASE_BOOKS_API_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: chmod +x gradlew && ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest --stacktrace
+        working-directory: android-app
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: node --test android-app/test/free-preview.test.cjs
+      - name: Verify APK signature and alignment
+        run: |
+          APK=android-app/app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 -v 4 "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" > apk-compatibility.txt
+          cat apk-compatibility.txt
+          if grep -q 'testOnly' apk-compatibility.txt; then exit 1; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Nihongo-Path-Books-debug-APK
+          path: android-app/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-test-reports
+          path: |
+            android-app/build/website-snapshot/website-source-manifest.json
+            android-app/app/build/reports
+            android-app/app/build/outputs/androidTest-results
+      - name: Build unsigned release bundle when signing is not configured
+        if: ${{ env.RELEASE_SIGNING_KEY == '' }}
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          BOOKS_LIVE_ADS: 'true'
+        run: ./gradlew bundleRelease
+        working-directory: android-app
+      - uses: actions/upload-artifact@v4
+        if: ${{ env.RELEASE_SIGNING_KEY == '' }}
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          BOOKS_LIVE_ADS: 'true'
+        with:
+          name: Nihongo-Path-Books-unsigned-AAB
+          path: android-app/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+      - name: Decode signing key
+        if: ${{ env.SIGNING_KEY != '' }}
+        env:
+          SIGNING_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          printf '%s' "$SIGNING_KEY" | base64 --decode > "$RUNNER_TEMP/books-release.jks"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/books-release.jks" >> "$GITHUB_ENV"
+      - name: Build signed release bundle
+        if: ${{ env.ANDROID_KEYSTORE_PATH != '' }}
+        env:
+          BOOKS_LIVE_ADS: 'true'
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew bundleRelease
+        working-directory: android-app
+      - uses: actions/upload-artifact@v4
+        if: ${{ env.ANDROID_KEYSTORE_PATH != '' }}
+        with:
+          name: Nihongo-Path-Books-signed-AAB
+          path: android-app/app/build/outputs/bundle/release/*.aab
+      - name: Build owner AdMob APK (no live ads requested by CI)
+        env:
+          BOOKS_LIVE_ADS: 'true'
+        run: |
+          ./gradlew assembleDebug
+          mkdir -p build/live-delivery
+          cp app/build/outputs/apk/debug/app-debug.apk build/live-delivery/Nihongo-Path-Books-1.6.0.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify build/live-delivery/Nihongo-Path-Books-1.6.0.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging build/live-delivery/Nihongo-Path-Books-1.6.0.apk | head -1
+        working-directory: android-app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Nihongo-Path-Books-owner-AdMob-APK
+          path: android-app/build/live-delivery/*.apk
+          if-no-files-found: error
+  device:
+    needs: apk
+    name: Install and launch · API ${{ matrix.api }} · ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {api: 23, arch: x86, target: default}
+          - {api: 29, arch: x86_64, target: google_apis}
+          - {api: 33, arch: x86_64, target: google_apis}
+          - {api: 35, arch: x86_64, target: google_apis}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Nihongo-Path-Books-debug-APK
+          path: delivered-apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          arch: ${{ matrix.arch }}
+          target: ${{ matrix.target }}
+          disable-animations: true
+          working-directory: android-app
+          script: |
+            adb shell wm size 1080x1920
+            adb shell wm density 420
+            chmod +x gradlew && ./gradlew connectedDebugAndroidTest
+            # Gradle uninstalls test packages on completion. Capture while explicitly installed.
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w -e class online.devnazu.books.ProtectionTest#accountHasGoogleAndMaskedPassword online.devnazu.books.test/androidx.test.runner.AndroidJUnitRunner
+            adb shell am instrument -w -e class online.devnazu.books.ProtectionTest#storeListingScreensAreActualAppViews online.devnazu.books.test/androidx.test.runner.AndroidJUnitRunner
+            adb logcat -d -s BooksClockTest:I '*:S' > app/build/reports/androidTests/clock-compatibility.txt
+            adb exec-out run-as online.devnazu.books cat files/library-preview.png > app/build/reports/androidTests/library-preview.png
+            adb exec-out run-as online.devnazu.books cat files/rewards-preview.png > app/build/reports/androidTests/rewards-preview.png
+            adb exec-out run-as online.devnazu.books cat files/auth-preview.png > app/build/reports/androidTests/auth-preview.png
+            adb exec-out run-as online.devnazu.books cat files/signup-preview.png > app/build/reports/androidTests/signup-preview.png
+            python3 -c "from pathlib import Path; p=Path('app/build/reports/androidTests/auth-preview.png'); assert p.read_bytes().startswith(bytes.fromhex('89504e470d0a1a0a')), 'Auth capture is not a PNG'"
+            if adb shell pm path online.devnazu.books | grep -q '^package:'; then adb uninstall online.devnazu.books; fi
+            adb install ../delivered-apk/app-debug.apk
+            adb logcat -c
+            adb shell am start -W -n online.devnazu.books/.MainActivity
+            sleep 5
+            adb shell pidof online.devnazu.books
+            adb logcat -d -b crash
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: device-test-reports-api-${{ matrix.api }}-${{ matrix.arch }}
+          path: android-app/app/build/reports/androidTests
