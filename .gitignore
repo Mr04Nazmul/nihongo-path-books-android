@@ -1,2 +1,5 @@
 __pycache__/
 *.pyc
+
+android-app/listening-media/**/*.mp3
+android-app/app/src/androidTest/assets/

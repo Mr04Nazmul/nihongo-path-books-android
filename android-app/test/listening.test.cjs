@@ -1,0 +1,10 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');const C=require('../reader/listening-core.js');
+test('media stays in the requested reward level',()=>{assert(C.asset('listening/n5/2018/g1/audio.mp3','N5'));for(const p of ['listening/n2/2018/g1/audio.mp3','listening/n5/../n2/audio.mp3','https://evil.example/audio.mp3','listening/n5/%2e%2e/x.mp3'])assert(!C.asset(p,'N5'),p);assert(C.levels.includes('N1'))});
+test('time formatting and separate attempt keys',()=>{assert.equal(C.time(83),'1:23');assert.equal(C.time(NaN),'0:00');assert.notEqual(C.key('a','paper','exam'),C.key('b','paper','exam'));assert.notEqual(C.key('a','paper','exam'),C.key('a','paper','practice'))});
+test('catalog rejects broken or cross-level source assets',()=>{const s={id:'paper',audio:'listening/n5/2018/a.mp3',pages:[{image:'listening/n5/2018/p.webp'}],questionCount:2,kind:'practice',answerKey:'listening/n5/2018/answers.json',questions:[{label:'1',options:4,page:0},{label:'2',options:4,page:null}]};assert(C.validSection(s,'N5'));assert(!C.validSection({...s,pages:[]},'N5'));assert(!C.validSection(s,'N2'));assert(!C.validSection({...s,questionCount:99},'N5'))});
+
+test('partial samples and incomplete or duplicate paper groups cannot enter mock tests',()=>{
+ const counts=[7,6,5,6],sections=[];
+ for(const year of ['2018','2012'])for(const [i,n] of counts.entries())sections.push({id:year+'-n5-g'+(i+1),year,group:i+1,kind:'practice',audio:'listening/n5/'+year+'/audio.mp3',answerKey:'listening/n5/'+year+'/answers.json',pages:[{image:'listening/n5/'+year+'/page.webp'}],questionCount:n,questions:Array.from({length:n},(_,j)=>({label:String(j+1),options:4,page:null}))});
+ const d={level:'N5',sections};assert(C.validCatalog(d,'N5'));assert(!C.validCatalog({...d,sections:sections.slice(1)},'N5'));assert(!C.validCatalog({...d,sections:[sections[0],...sections.slice(0,-1)]},'N5'));assert(!C.validSection({...sections[0],kind:'sample'},'N5'));assert(!C.validCatalog({...d,sections:sections.map((s,i)=>i? s:{...s,questionCount:6})},'N5'));
+});

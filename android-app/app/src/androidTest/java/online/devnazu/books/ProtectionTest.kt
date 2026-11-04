@@ -45,7 +45,7 @@ class ProtectionTest {
     MainActivity::class.java.getDeclaredField("tab").apply{isAccessible=true}.set(a,"Rewards");MainActivity::class.java.getDeclaredMethod("draw").apply{isAccessible=true}.invoke(a)
     assertFalse(views(a.window.decorView).any{it is android.widget.Spinner})
     for(level in Access.levels){views(a.window.decorView).filterIsInstance<android.widget.Button>().first{it.text.toString()==level}.performClick();assertEquals(level,MainActivity::class.java.getDeclaredField("selected").apply{isAccessible=true}.get(a))}
-    MainActivity::class.java.getDeclaredMethod("openStudy",String::class.java,String::class.java,Boolean::class.javaPrimitiveType).apply{isAccessible=true}.invoke(a,"N5","vocab",false)
+    MainActivity::class.java.getDeclaredField("previewMode").apply{isAccessible=true}.setBoolean(a,true);MainActivity::class.java.getDeclaredMethod("openReader",String::class.java,String::class.java).apply{isAccessible=true}.invoke(a,"study.html?level=N5&section=vocab&preview=1","N5")
    }
    for(mode in listOf("dark","light","dark")){
     scenario.onActivity{a->prefs.edit().putString("appearance",mode).commit();MainActivity::class.java.getDeclaredMethod("applyAppearance").apply{isAccessible=true}.invoke(a)}
@@ -77,7 +77,7 @@ class ProtectionTest {
  @Test fun freeStudyReaderWorksWithoutLogin(){
   val context=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext;TokenVault(context).clear()
   ActivityScenario.launch(MainActivity::class.java).use{scenario->
-   scenario.onActivity{a->MainActivity::class.java.getDeclaredMethod("openStudy",String::class.java,String::class.java,Boolean::class.javaPrimitiveType).apply{isAccessible=true}.invoke(a,"N5","vocab",false)}
+   scenario.onActivity{a->MainActivity::class.java.getDeclaredField("previewMode").apply{isAccessible=true}.setBoolean(a,true);MainActivity::class.java.getDeclaredMethod("openReader",String::class.java,String::class.java).apply{isAccessible=true}.invoke(a,"study.html?level=N5&section=vocab&preview=1","N5")}
    var count=0
    for(attempt in 0 until 24){val latch=java.util.concurrent.CountDownLatch(1);scenario.onActivity{a->val view=MainActivity::class.java.getDeclaredField("web").apply{isAccessible=true}.get(a) as android.webkit.WebView;view.evaluateJavascript("document.querySelectorAll('article.row').length"){value->count=value.toIntOrNull()?:0;latch.countDown()}};latch.await(2,java.util.concurrent.TimeUnit.SECONDS);if(count==5)break;Thread.sleep(250)}
    var diagnostic="";val diagnosticReady=java.util.concurrent.CountDownLatch(1)

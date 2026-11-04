@@ -170,8 +170,8 @@ class MainActivity : ComponentActivity() {
         area.addView(button(tr("New chapter draft","নতুন chapter draft")){editAdminJson("Chapter draft","/admin/chapter",JSONObject().put("id","n5-vocab-chapter-1").put("level","N5").put("kind","vocab").put("title","Lesson 1").put("position",1).put("entries",JSONArray()).put("published",false))})
         async({api.request("/admin/overview")}){overview->if(tab=="Admin"){
             add(overview.optJSONObject("counts")?.toString(2)?:"",14f)
-            val levels=overview.optJSONArray("levels")?:JSONArray();for(i in 0 until levels.length()){val level=levels.getJSONObject(i);area.addView(button(level.getString("level")+" · "+if(level.optBoolean("enabled"))"Active" else "Coming soon / disabled"){async({api.request("/admin/level","PATCH",JSONObject().put("level",level.getString("level")).put("enabled",!level.optBoolean("enabled")))}){draw()}}.apply{isEnabled=level.getString("level")!="N1"})}
-            add(tr("Reward thresholds and durations","Reward threshold ও সময়"),21f);val tiers=overview.optJSONArray("tiers")?:JSONArray();for(i in 0 until tiers.length()){val tier=tiers.getJSONObject(i);if(tier.getString("level")=="N1")continue;area.addView(button(tier.getString("id")+" · "+tier.getInt("credits")+" credits"){editAdminJson("Reward tier","/admin/tier",tier,"PATCH")})}
+            val levels=overview.optJSONArray("levels")?:JSONArray();for(i in 0 until levels.length()){val level=levels.getJSONObject(i);area.addView(button(level.getString("level")+" · "+if(level.optBoolean("enabled"))"Active" else "Coming soon / disabled"){async({api.request("/admin/level","PATCH",JSONObject().put("level",level.getString("level")).put("enabled",!level.optBoolean("enabled")))}){draw()}})}
+            add(tr("Reward thresholds and durations","Reward threshold ও সময়"),21f);val tiers=overview.optJSONArray("tiers")?:JSONArray();for(i in 0 until tiers.length()){val tier=tiers.getJSONObject(i);area.addView(button(tier.getString("id")+" · "+tier.getInt("credits")+" credits"){editAdminJson("Reward tier","/admin/tier",tier,"PATCH")})}
             add(tr("Chapter drafts","Chapter drafts"),21f);val chapters=overview.optJSONArray("chapters")?:JSONArray();for(i in 0 until chapters.length()){val chapter=chapters.getJSONObject(i);card{
                 addView(text(chapter.optString("title")+" · "+chapter.getString("id")))
                 addView(button(tr("Edit draft","Draft edit")){editAdminJson("Chapter draft","/admin/chapter",JSONObject(chapter.toString()).put("published",false))})
@@ -210,7 +210,7 @@ class MainActivity : ComponentActivity() {
         if(tab=="Account"&&vault.read().isEmpty()){loginScreen();return}
         root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(paper);setPadding(dp(16),dp(25),dp(16),dp(8))}
         val head=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,0,0,dp(8))}
-        head.addView(ImageView(this).apply{setImageResource(R.drawable.ic_books);scaleType=ImageView.ScaleType.CENTER_CROP},LinearLayout.LayoutParams(dp(if(compact)26 else 34),dp(if(compact)26 else 34)).apply{setMargins(0,0,dp(if(compact)6 else 10),0)})
+        head.addView(ImageView(this).apply{setImageResource(R.drawable.ic_brand_book);scaleType=ImageView.ScaleType.CENTER_CROP},LinearLayout.LayoutParams(dp(if(compact)26 else 34),dp(if(compact)26 else 34)).apply{setMargins(0,0,dp(if(compact)6 else 10),0)})
         head.addView(text("Nihongo\nPath Books",if(compact)12f else 14f).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END;typeface=android.graphics.Typeface.create("serif",android.graphics.Typeface.BOLD)},LinearLayout.LayoutParams(0,-2,1f))
         head.addView(quietButton("♛"){tab="Rewards";draw()}.apply{contentDescription=tr("Rewards","ক্রেডিট");textSize=20f;setTextColor(Color.rgb(231,181,76))},LinearLayout.LayoutParams(dp(if(compact)24 else 30),dp(40)))
         head.addView(quietButton("◐"){appearanceDialog()}.apply{contentDescription=tr("Theme & colour","থিম ও রং")},LinearLayout.LayoutParams(dp(if(compact)24 else 30),dp(40)))
@@ -219,7 +219,7 @@ class MainActivity : ComponentActivity() {
         val scroll=ScrollView(this);area=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL};scroll.addView(area);root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
         val nav=LinearLayout(this).apply{setPadding(0,dp(8),0,0)}
         listOf("Home","Books","Quiz","Progress","Account").forEach { page->
-            val label=when(page){"Home"->tr("Home","হোম");"Books"->tr("Books","বই");"Quiz"->tr("Quiz","কুইজ");"Progress"->tr("Progress","অগ্রগতি");else->tr("Profile","প্রোফাইল")}
+            val label=when(page){"Home"->tr("Home","হোম");"Books"->tr("Books","বই");"Quiz"->tr("Mock Test","মক টেস্ট");"Progress"->tr("Kanji","কানজি");else->tr("Profile","প্রোফাইল")}
             val icons=mapOf("Home" to "⌂","Books" to "▣","Quiz" to "◇","Progress" to "▥","Account" to "♙")
             nav.addView(quietButton(label){tab=page;draw()}.apply{contentDescription=label;setCompoundDrawablesWithIntrinsicBounds(null,NavIcon(icons.getValue(page),if(tab==page)accentInk else muted),null,null);setTextColor(if(tab==page)accentInk else muted);textSize=10f;setPadding(0,dp(4),0,0)},LinearLayout.LayoutParams(0,dp(56),1f))
         };root.addView(nav);setContentView(root)
@@ -240,37 +240,70 @@ class MainActivity : ComponentActivity() {
     }
     private fun quietButton(label:String,action:()->Unit)=button(label,action).apply{background=android.graphics.drawable.ColorDrawable(Color.TRANSPARENT);setTextColor(ink);textSize=12f;minWidth=0;minimumWidth=0;minHeight=0;minimumHeight=0;setPadding(dp(6),0,dp(6),0);layoutParams=LinearLayout.LayoutParams(-2,dp(40))}
     private inner class NavIcon(private val glyph:String,private val tint:Int):android.graphics.drawable.Drawable(){
-        override fun draw(canvas:android.graphics.Canvas){val paint=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply{color=tint;textSize=dp(25).toFloat();textAlign=android.graphics.Paint.Align.CENTER};canvas.drawText(glyph,bounds.exactCenterX(),bounds.bottom-dp(3).toFloat(),paint)}
+        override fun draw(canvas:android.graphics.Canvas){
+            val paint=android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply{color=tint;style=android.graphics.Paint.Style.STROKE;strokeWidth=1.5f;strokeCap=android.graphics.Paint.Cap.ROUND;strokeJoin=android.graphics.Paint.Join.ROUND}
+            canvas.save();canvas.translate(bounds.left.toFloat(),bounds.top.toFloat());canvas.scale(bounds.width()/26f,bounds.height()/29f)
+            val path=android.graphics.Path()
+            when(glyph){
+                "⌂"->{path.moveTo(3f,13f);path.lineTo(13f,4f);path.lineTo(23f,13f);path.moveTo(5f,12f);path.lineTo(5f,25f);path.lineTo(10f,25f);path.lineTo(10f,18f);path.lineTo(16f,18f);path.lineTo(16f,25f);path.lineTo(21f,25f);path.lineTo(21f,12f)}
+                "▣"->{path.moveTo(13f,8f);path.cubicTo(10f,5f,5f,5f,2f,7f);path.lineTo(2f,24f);path.cubicTo(6f,22f,10f,22f,13f,25f);path.cubicTo(16f,22f,20f,22f,24f,24f);path.lineTo(24f,7f);path.cubicTo(20f,5f,16f,5f,13f,8f);path.lineTo(13f,25f)}
+                "◇"->{canvas.drawRoundRect(5f,6f,21f,26f,2f,2f,paint);canvas.drawRoundRect(9f,3f,17f,9f,2f,2f,paint);for(y in listOf(13f,17f,21f))canvas.drawLine(9f,y,17f,y,paint)}
+                "▥"->{paint.style=android.graphics.Paint.Style.FILL;paint.textSize=22f;paint.textAlign=android.graphics.Paint.Align.CENTER;canvas.drawText("字",13f,24f,paint)}
+                else->{canvas.drawCircle(13f,9f,4.5f,paint);path.moveTo(3f,26f);path.cubicTo(3f,14f,23f,14f,23f,26f);path.close()}
+            }
+            canvas.drawPath(path,paint);canvas.restore()
+        }
         override fun setAlpha(alpha:Int){};override fun setColorFilter(filter:android.graphics.ColorFilter?){};@Deprecated("Deprecated in Java") override fun getOpacity()=android.graphics.PixelFormat.TRANSLUCENT
         override fun getIntrinsicWidth()=dp(26);override fun getIntrinsicHeight()=dp(29)
     }
     private fun home(){
         area.addView(text("こんにちは！",if(compact)20f else 23f).apply{setPadding(0,dp(2),0,0)});area.addView(text(tr("Let's continue your Japanese journey","চলুন, জাপানি শেখার পথে এগিয়ে যাই"),11f).apply{setPadding(0,dp(3),0,dp(5))})
         val study=data.optJSONObject("studyState")?:JSONObject()
-        card{setPadding(dp(14),dp(5),dp(14),dp(5));(layoutParams as LinearLayout.LayoutParams).setMargins(0,dp(5),0,dp(6));addView(text(tr("My progress","আমার অগ্রগতি"),11f).apply{setPadding(0,0,0,0)});val row=LinearLayout(this@MainActivity);row.addView(text(selected,15f).apply{setPadding(0,0,0,0)},LinearLayout.LayoutParams(0,-2,1f));row.addView(text(tr("${study.optJSONArray("learned")?.length()?:0} learned","${study.optJSONArray("learned")?.length()?:0}টি শেখা হয়েছে"),12f));addView(row)}
+
         val hero=FrameLayout(this)
         hero.addView(ImageView(this).apply{setImageResource(R.drawable.sakura_journey);scaleType=ImageView.ScaleType.CENTER_CROP},FrameLayout.LayoutParams(-1,dp(if(compact)90 else 150)))
         hero.addView(text("毎日の一歩が、未来をつくる。\n"+tr("Small steps today. A brighter future tomorrow.","প্রতিদিন একটু করে, আগামীর পথে।"),13f).apply{setPadding(dp(14),dp(if(compact)42 else 96),dp(14),dp(10));setTextColor(Color.WHITE);setShadowLayer(8f,0f,2f,Color.BLACK)},FrameLayout.LayoutParams(-1,-1));area.addView(hero)
-        val labels=listOf("Vocabulary\n単語","Grammar\n文法","Kanji\n漢字","Books\n教科書");val colors=listOf(0xffb45374.toInt(),0xff286a9b.toInt(),0xff148665.toInt(),0xffad6c35.toInt())
-        for(r in 0..1){val row=LinearLayout(this);for(c in 0..1){val i=r*2+c;row.addView(button(labels[i]){if(i==3){tab="Books";draw()}else openStudy(selected,listOf("vocab","grammar","kanji")[i])}.apply{textSize=if(compact)12f else 15f;gravity=Gravity.START or Gravity.CENTER_VERTICAL;setPadding(dp(14),dp(8),dp(8),dp(8));background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,intArrayOf(colors[i],0xff101c2c.toInt())).apply{cornerRadius=dp(14).toFloat()}},LinearLayout.LayoutParams(0,dp(if(compact)56 else 72),1f).apply{setMargins(if(c==1)dp(4) else 0,dp(7),if(c==0)dp(4) else 0,0)})};area.addView(row)}
+        card{setPadding(dp(14),dp(5),dp(14),dp(5));(layoutParams as LinearLayout.LayoutParams).setMargins(0,dp(5),0,dp(6));addView(text(tr("My progress","আমার অগ্রগতি"),11f).apply{setPadding(0,0,0,0)});val row=LinearLayout(this@MainActivity);row.addView(text(selected,15f).apply{setPadding(0,0,0,0)},LinearLayout.LayoutParams(0,-2,1f));row.addView(text(tr("${study.optJSONArray("learned")?.length()?:0} learned","${study.optJSONArray("learned")?.length()?:0}টি শেখা হয়েছে"),12f));addView(row)}
+        val labels=listOf(tr("Books\n教科書","বইঘর\n教科書"),tr("Bookmarks\n保存","সংরক্ষিত পাঠ\n保存"),tr("Reading settings\n設定","পড়ার সেটিংস\n設定"),tr("Reward Center\n特典","রিওয়ার্ড সেন্টার\n特典"));val destinations=listOf("Books","Bookmarks","ReaderSettings","Rewards");val colors=listOf(0xffb45374.toInt(),0xff286a9b.toInt(),0xff148665.toInt(),0xffad6c35.toInt())
+        for(r in 0..1){val row=LinearLayout(this);for(c in 0..1){val i=r*2+c;row.addView(button(labels[i]){tab=destinations[i];draw()}.apply{textSize=if(compact)12f else 15f;gravity=Gravity.START or Gravity.CENTER_VERTICAL;setPadding(dp(14),dp(8),dp(8),dp(8));background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,intArrayOf(colors[i],0xff101c2c.toInt())).apply{cornerRadius=dp(14).toFloat()}},LinearLayout.LayoutParams(0,dp(if(compact)56 else 72),1f).apply{setMargins(if(c==1)dp(4) else 0,dp(7),if(c==0)dp(4) else 0,0)})};area.addView(row)}
         add(tr("Start with the basics","শুরু হোক বেসিক দিয়ে"),17f)
         val basicsRow=LinearLayout(this)
         listOf("hiragana","katakana","numbers").forEachIndexed{i,section->basicsRow.addView(button(listOf("あ\n"+tr("Hiragana","হিরাগানা"),"ア\n"+tr("Katakana","কাতাকানা"),"１２\n"+tr("Numbers","সংখ্যা"))[i]){previewMode=false;openReader("basics/index.html#$section",null)}.apply{contentDescription="basic-$section";textSize=13f;setTextColor(ink);background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR,if(dark)intArrayOf(0xff26364a.toInt(),surface)else intArrayOf(0xffe9eff7.toInt(),surface)).apply{cornerRadius=dp(18).toFloat();setStroke(dp(1),border)}},LinearLayout.LayoutParams(0,dp(88),1f).apply{setMargins(dp(3),dp(5),dp(3),dp(10))})};area.addView(basicsRow)
     }
-    private fun openStudy(level:String,kind:String,savedOnly:Boolean=false){selected=level;previewMode=expiry(level)<=now();openReader("study.html?level=$level&section=$kind"+(if(previewMode)"&preview=1" else "")+(if(savedOnly)"&saved=1" else ""),level)}
+    private fun openStudy(level:String,kind:String,savedOnly:Boolean=false){selected=level;previewMode=false;openReader("study.html?level=$level&section=$kind"+(if(savedOnly)"&saved=1" else ""),level)}
     private fun bookLevels(){
         add("JLPT Books",24f)
-        val filters=LinearLayout(this);listOf("All","N5","N4","N3","N2").forEach{n->filters.addView(quietButton(n){if(n!="All")chooseSubject(n)},LinearLayout.LayoutParams(0,dp(38),1f))};area.addView(filters)
-        (Access.levels+"N1").forEachIndexed {i,level->
+        val filters=LinearLayout(this);listOf("All","N5","N4","N3","N2","N1").forEach{n->filters.addView(quietButton(n){if(n!="All")chooseSubject(n)},LinearLayout.LayoutParams(0,dp(38),1f))};area.addView(filters)
+        Access.levels.forEachIndexed {i,level->
             val tile=FrameLayout(this).apply{layoutParams=LinearLayout.LayoutParams(-1,dp(94)).apply{setMargins(0,dp(7),0,dp(3))};background=android.graphics.drawable.GradientDrawable().apply{setColor(Color.rgb(28,37,48));cornerRadius=dp(16).toFloat()};clipToOutline=true}
-            tile.addView(ImageView(this).apply{setImageResource(R.drawable.sakura_journey);scaleType=ImageView.ScaleType.CENTER_CROP;alpha=if(level=="N1")0.25f else 0.65f},FrameLayout.LayoutParams(-1,-1))
+            tile.addView(ImageView(this).apply{setImageResource(R.drawable.sakura_journey);scaleType=ImageView.ScaleType.CENTER_CROP;alpha=0.65f},FrameLayout.LayoutParams(-1,-1))
             val hues=intArrayOf(0xffe3a1ba.toInt(),0xff8eabe6.toInt(),0xff8fd5b4.toInt(),0xffe7b67b.toInt(),0xff898b8f.toInt())
-            val info=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(18),dp(8),dp(12),dp(8));background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,intArrayOf(hues[i],0x22334050));addView(text(level,28f).apply{setTextColor(Color.rgb(25,30,36));setPadding(0,0,0,0)});addView(text(listOf("Beginner","Basic","Intermediate","Upper intermediate","Advanced · Coming Soon")[i],12f).apply{setTextColor(Color.rgb(25,30,36));setPadding(0,0,0,0)});if(level!="N1")addView(text(tr("Vocabulary · Grammar · Kanji","শব্দভান্ডার · ব্যাকরণ · কানজি"),11f).apply{setTextColor(Color.rgb(25,30,36));setPadding(0,dp(3),0,0)})}
+            val info=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(18),dp(8),dp(12),dp(8));background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,intArrayOf(hues[i],0x22334050));addView(text(level,28f).apply{setTextColor(Color.rgb(25,30,36));setPadding(0,0,0,0)});addView(text(listOf("Beginner","Basic","Intermediate","Upper intermediate","Advanced")[i],12f).apply{setTextColor(Color.rgb(25,30,36));setPadding(0,0,0,0)});addView(text(tr("Vocabulary · Grammar · Kanji","শব্দভান্ডার · ব্যাকরণ · কানজি"),11f).apply{setTextColor(Color.rgb(25,30,36));setPadding(0,dp(3),0,0)})}
             tile.addView(info,FrameLayout.LayoutParams(-1,-1));tile.setOnClickListener{chooseSubject(level)};area.addView(tile)
         }
     }
-    private fun quizLibrary(){add(tr("Practice a little every day","প্রতিদিন একটু অনুশীলন"),24f);Access.levels.forEach{level->area.addView(button("$level Quiz →"){openStudy(level,"quiz")})}}
-    private fun progressScreen(){val study=data.optJSONObject("studyState")?:JSONObject();add(tr("My progress","আমার অগ্রগতি"),26f);card{addView(text(tr("Learned entries","শেখা entry"),14f));addView(text((study.optJSONArray("learned")?.length()?:0).toString(),32f))};card{addView(text(tr("Bookmarks","বুকমার্ক"),14f));addView(text((study.optJSONArray("saved")?.length()?:0).toString(),32f))};add(tr("Sign in to keep your study progress synchronized.","পড়ার অগ্রগতি সংরক্ষণ করতে লগইন করুন।"),13f)}
+    private fun quizLibrary(){futurePage(true)}
+    private fun progressScreen(){openKanji(selected)}
+    private fun openListening(level:String){if(level !in Access.levels)return;selected=level;previewMode=vault.read().isEmpty()||expiry(level)<=now();openReader("listening.html?level=$level",level)}
+    private fun openKanji(level:String){if(level !in Access.levels)return;selected=level;previewMode=vault.read().isEmpty()||expiry(level)<=now();openReader("kanji.html?level=$level"+if(previewMode)"&preview=1" else "",level)}
+    private fun futurePage(mock:Boolean){
+        area.addView(quietButton(tr("← Books","← বই")){tab="Books";draw()}.apply{setPadding(0,dp(4),0,dp(12))})
+        area.addView(text(if(mock)"JLPT Mock Test" else "Kanji Animation",30f).apply{typeface=android.graphics.Typeface.create("serif",android.graphics.Typeface.BOLD)})
+        add(if(mock)tr("Choose your level","আপনার লেভেল বেছে নিন")else tr("All your book kanji in one place","বইয়ের সব কানজি এক জায়গায়"),14f)
+        if(!mock){area.addView(text(tr("⌕  Search kanji or meaning","⌕  কানজি বা তার অর্থ দিয়ে খুঁজুন"),14f).apply{setPadding(dp(14),dp(12),dp(14),dp(12));setTextColor(muted);background=android.graphics.drawable.GradientDrawable().apply{setColor(surface);cornerRadius=dp(12).toFloat();setStroke(dp(1),border)};isEnabled=false})}
+        val levels=LinearLayout(this)
+        Access.levels.forEach{level->levels.addView(text(level,13f).apply{gravity=Gravity.CENTER;setPadding(dp(6),dp(10),dp(6),dp(10));setTextColor(if(level==selected)Color.WHITE else muted);background=android.graphics.drawable.GradientDrawable().apply{setColor(if(level==selected)accent else surface);cornerRadius=dp(10).toFloat();setStroke(dp(1),if(level==selected)accent else border)};setOnClickListener{selected=level;draw()}},LinearLayout.LayoutParams(0,dp(42),1f).apply{setMargins(dp(3),dp(12),dp(3),dp(12))})}
+        area.addView(levels)
+        if(mock){
+            val counts=mapOf("N5" to 48,"N4" to 56,"N3" to 55,"N2" to 63,"N1" to 73)
+            card{
+                addView(text("$selected Listening",24f))
+                addView(text(tr("2012 → 2018 · ${counts[selected]?:0} questions","২০১২ → ২০১৮ · ${counts[selected]?:0}টি প্রশ্ন"),15f))
+                addView(text(tr("Original question pictures, audio and answer keys. Practice or one-play exam practice by question group.","মূল প্রশ্নের ছবি, অডিও ও উত্তর। প্রথম ২টি গ্রুপ ফ্রি; বাকি গ্রুপ রিওয়ার্ডে খুলবে। Practice ও Exam practice আছে।"),14f))
+                addView(button(tr("Start listening mock →","লিসেনিং মক শুরু করুন →")){openListening(selected)})
+            }
+        }
+    }
     private fun chooseSubject(level:String){if(level !in Access.levels){message("N1 · Coming Soon");return};selected=level;tab="Subjects";draw()}
     private fun subjectLibrary(){
         add("←  $selected Books",24f)
@@ -280,13 +313,8 @@ class MainActivity : ComponentActivity() {
             addView(button(tr("Read 5 free →","৫টি ফ্রি পড়ুন →")){previewMode=true;openReader("study.html?level=$selected&section=$kind&preview=1",selected)})
             addView(button(tr("Read complete book →","সম্পূর্ণ বই পড়ুন →")){previewMode=false;if(expiry(selected)>now())openReader("study.html?level=$selected&section=$kind",selected)else{tab=if(vault.read().isEmpty())"Account" else "Rewards";draw()}})
         }}
-        area.addView(button(tr("Original PDF book →","মূল PDF বই →")){previewMode=false;openPdfBook(selected)})
-        if(selected=="N5")area.addView(button(tr("N5 Listening","N5 লিসেনিং")){previewMode=false;openReader("listening.html?level=N5",selected)})
+        area.addView(button(tr("$selected Listening","$selected লিসেনিং")){openListening(selected)})
         area.addView(button(tr("Unlock with ads →","বিজ্ঞাপন দেখে খুলুন →")){tab=if(vault.read().isEmpty())"Account" else "Rewards";draw()})
-    }
-    private fun openPdfBook(level:String){
-        if(level=="N1"){message(tr("N1 has text lessons; no owner PDF is supplied.","N1-এর পাঠ টেক্সটে আছে; মালিকের PDF দেওয়া হয়নি।"));return}
-        previewMode=false;openReader("pdf-reader.html?level=$level",level)
     }
     private fun rewards(){
         add(tr("Reward Center","ক্রেডিট সেন্টার"),30f);add(tr("Choose a level. Finish an optional ad to earn one verified credit for that level. Redeem only when you choose.","লেভেল বেছে নিন। ইচ্ছামতো একটি বিজ্ঞাপন সম্পূর্ণ দেখে সেই লেভেলের একটি যাচাইকৃত ক্রেডিট পান। নিজের পছন্দে সময় কিনুন।"))
@@ -431,12 +459,13 @@ class MainActivity : ComponentActivity() {
     @Suppress("SetJavaScriptEnabled")
     private fun openReader(route:String,level:String?){
         if(!Access.readerScreen(route)){tab="Books";draw();return}
-        if(level=="N1"||(route.startsWith("listening")&&level!="N5")){message("Unavailable in this release");return}
-        if(!previewMode&&level!=null&&expiry(level)<=now()){tab="Rewards";draw();return}
+                if(!previewMode&&level!=null&&expiry(level)<=now()){tab=if(vault.read().isEmpty())"Account" else "Rewards";draw();return}
+        val requestPreview=previewMode
+        val requestPage=route.substringBefore('?').substringBefore('#')
         readerLevel=level;readerExpiry=level?.let{expiry(it)}?:Long.MAX_VALUE
         val container=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(0,dp(28),0,0);setBackgroundColor(paper)}
         readerContainer=container
-        val toolbar=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setBackgroundColor(paper)};readerToolbar=toolbar
+        val toolbar=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setBackgroundColor(paper);if(requestPage=="listening.html")visibility=View.GONE};readerToolbar=toolbar
         toolbar.addView(quietButton(tr("← Library","← বইঘর")){closeReader()},LinearLayout.LayoutParams(0,dp(44),1f));toolbar.addView(quietButton("◐"){appearanceDialog()}.apply{contentDescription=tr("Theme & colour","থিম ও রং")},LinearLayout.LayoutParams(dp(52),dp(44)));container.addView(toolbar)
         val loader=WebViewAssetLoader.Builder().addPathHandler("/assets/",WebViewAssetLoader.AssetsPathHandler(this)).build()
         val view=WebView(this);web=view;view.setBackgroundColor(paper)
@@ -444,6 +473,12 @@ class MainActivity : ComponentActivity() {
         WebView.setWebContentsDebuggingEnabled(false)
         view.addJavascriptInterface(object{
             @JavascriptInterface fun appearance():String=appearanceJson()
+            @JavascriptInterface fun learningProfile():String=data.optJSONObject("user")?.optString("id")?.takeIf{it.isNotBlank()}?:"guest"
+            @JavascriptInterface fun selectListeningLevel(value:String){if(requestPage!="listening.html"||value !in Access.levels)return;runOnUiThread{closeReader();openListening(value)}}
+            @JavascriptInterface fun showAppearance(){runOnUiThread{appearanceDialog()}}
+            @JavascriptInterface fun readerAccess():String=JSONObject().put("preview",requestPreview).put("remainingMs",if(requestPreview)0 else (readerExpiry-now()).coerceAtLeast(0)).toString()
+            @JavascriptInterface fun selectKanjiLevel(value:String){if(requestPage!="kanji.html"||value !in Access.levels)return;runOnUiThread{closeReader();tab="Progress";openKanji(value)}}
+            @JavascriptInterface fun navigate(value:String){if(value !in listOf("Home","Books","Quiz","Progress","Account"))return;runOnUiThread{closeReader();tab=value;draw()}}
             @JavascriptInterface fun saveProgress(value:String){
                 if(vault.read().isNotEmpty() && value.length<150000){
                     val owner=data.optJSONObject("user")?.optString("id")
@@ -461,8 +496,9 @@ class MainActivity : ComponentActivity() {
             override fun shouldOverrideUrlLoading(v:WebView,r:WebResourceRequest):Boolean {
                 if(!Access.internal(r.url.toString())){message(tr("This link is outside the study library.","এই লিংকটি স্টাডি লাইব্রেরির বাইরে।"));return true}
                 val relative=r.url.path.orEmpty().removePrefix("/assets/reader/")
-                if(relative.endsWith(".html")&&!Access.readerScreen(relative)){closeReader();tab="Books";draw();return true}
-                if(relative=="listening.html"&&r.url.getQueryParameter("level")!="N5")return true
+                if(relative.endsWith(".html")&&(relative!=requestPage||!Access.readerScreen(relative)))return true
+                if(relative=="study.html"||relative=="kanji.html"){if(r.url.getQueryParameter("level")!=level)return true}
+                if(relative=="listening.html"&&r.url.getQueryParameter("level")!=level)return true
                 return false
             }
             override fun shouldInterceptRequest(v:WebView,r:WebResourceRequest):WebResourceResponse {
@@ -470,19 +506,47 @@ class MainActivity : ComponentActivity() {
                 if(!Access.internal(r.url.toString()))return denied()
                 val path=r.url.path!!.removePrefix("/assets/reader/")
                 if(path.endsWith(".html")&&!Access.readerScreen(path))return denied()
-                if(Regex("(?:^|/)(?:lessons-|owner-|listening-|jlpt-)?n1(?:[./-])").containsMatchIn(path)||Regex("^data/listening-n[2-4]\\.json$").matches(path)||Regex("^audio/(?:listening/)?n[1-4]/").containsMatchIn(path))return denied()
-                val protected=path.startsWith("pdfs/")||path.startsWith("audio/")||Regex("^data/(?:lessons-|owner-|listening-)?n[1-5]\\.json$").matches(path)||path=="data/extra.json"
-                if(protected&&previewMode){
-                    if(!Regex("^data/lessons-n[2-5]\\.json$").matches(path))return denied()
-                    return try{WebResourceResponse("application/json","UTF-8",assets.open("reader/previews/"+path.substringAfterLast('/')))}catch(_:Exception){denied()}
+                if(Regex("^data/listening-n[2-4]\\.json$").matches(path)||Regex("^audio/(?:listening/)?n[1-4]/").containsMatchIn(path))return denied()
+                if(path.startsWith("listening/")){
+                    if(requestPage!="listening.html"||Access.contentLevel(path)!=level||level==null)return denied()
+                    val free=Access.freeListeningAsset(path,level)
+                    if(free!=null)return try{
+                        val bytes=assets.open(free).use{it.readBytes()}
+                        val mime=when{path.endsWith(".mp3")->"audio/mpeg";path.endsWith(".webp")->"image/webp";else->"application/json"}
+                        val headers=mutableMapOf("Cache-Control" to "no-store","Accept-Ranges" to "bytes")
+                        val range=r.requestHeaders.entries.firstOrNull{it.key.equals("Range",true)}?.value
+                        if(range!=null){
+                            val match=Regex("^bytes=([0-9]+)-([0-9]*)$").matchEntire(range)?:return denied(416)
+                            val start=match.groupValues[1].toLongOrNull()?:return denied(416)
+                            val end=if(match.groupValues[2].isEmpty())bytes.size.toLong()-1 else match.groupValues[2].toLongOrNull()?:return denied(416)
+                            if(start>=bytes.size||end<start)return denied(416)
+                            val last=minOf(end,bytes.size.toLong()-1).toInt();val first=start.toInt()
+                            headers["Content-Range"]="bytes $first-$last/${bytes.size}";headers["Content-Length"]=(last-first+1).toString()
+                            WebResourceResponse(mime,null,206,"Partial Content",headers,ByteArrayInputStream(bytes,first,last-first+1))
+                        }else{headers["Content-Length"]=bytes.size.toString();WebResourceResponse(mime,if(mime=="application/json")"UTF-8" else null,200,"OK",headers,ByteArrayInputStream(bytes))}
+                    }catch(_:Exception){denied(503)}
+                    if(requestPreview||vault.read().isEmpty()||expiry(level)<=now())return denied()
+                    return try{api.listening(path,r.requestHeaders.entries.firstOrNull{it.key.equals("Range",true)}?.value)}catch(_:Exception){denied(503)}
                 }
-                if(protected){return try{val (type,bytes)=api.content(path);WebResourceResponse(type.substringBefore(';'),null,200,"OK",mapOf("Cache-Control" to "no-store"),ByteArrayInputStream(bytes))}catch(_:Exception){denied(503)}}
+                if(path.startsWith("pdfs/")||path.startsWith("data/owner-"))return denied()
+                if(path.endsWith(".html")&&path!=requestPage)return denied()
+                if((path=="study.html"||path=="kanji.html")&&r.url.getQueryParameter("level")!=level)return denied()
+                val protected=path.startsWith("kanji/")||path.startsWith("strokes/")||path.startsWith("audio/")||Regex("^data/(?:lessons-|listening-)?n[1-5]\\.json$").matches(path)||path=="data/extra.json"
+                if(protected){
+                    if(Access.contentLevel(path)!=level)return denied()
+                    if(requestPreview){
+                        val free=Access.previewAsset(path,level)?:return denied()
+                        return try{WebResourceResponse("application/json","UTF-8",200,"OK",mapOf("Cache-Control" to "no-store"),assets.open(free))}catch(_:Exception){denied()}
+                    }
+                    if(vault.read().isEmpty()||level==null||expiry(level)<=now())return denied()
+                    return try{val (type,bytes)=api.content(path);WebResourceResponse(type.substringBefore(';'),null,200,"OK",mapOf("Cache-Control" to "no-store"),ByteArrayInputStream(bytes))}catch(_:Exception){denied(503)}
+                }
                 if(path.endsWith(".mjs"))return try{WebResourceResponse("text/javascript","UTF-8",assets.open("reader/"+path))}catch(_:Exception){denied()}
                 return loader.shouldInterceptRequest(r.url)?:denied()
             }
             override fun onPageFinished(v:WebView,url:String){
                 v.evaluateJavascript("window.applyAppAppearance&&window.applyAppAppearance("+appearanceJson()+")",null)
-                if(url.contains("/study.html")||url.contains("/pdf-reader.html")){
+                if(url.contains("/study.html")){
                     val restored=data.optJSONObject("studyState")
                     if(restored!=null&&restored.length()>0)v.evaluateJavascript("Object.assign(state,JSON.parse(${JSONObject.quote(restored.toString())}));state.saved=state.saved||[];localStorage.setItem('nihongo-path',JSON.stringify(state));if(typeof data!=='undefined'&&data.vocab&&typeof render==='function')render();",null)
                     return
@@ -491,8 +555,8 @@ class MainActivity : ComponentActivity() {
         }
         container.addView(view,LinearLayout.LayoutParams(-1,0,1f));setContentView(container);view.loadUrl("https://appassets.androidplatform.net/assets/reader/$route")
     }
-    private fun closeReader(){web?.apply{stopLoading();loadUrl("about:blank");removeJavascriptInterface("StudyNative");clearCache(true);destroy()};web=null;readerContainer=null;readerToolbar=null;readerLevel=null;previewMode=false;tts?.stop();draw()}
-    override fun onPause(){web?.onPause();tts?.stop();super.onPause()}
+    private fun closeReader(){if(tab=="Progress")tab="Books";web?.apply{stopLoading();loadUrl("about:blank");removeJavascriptInterface("StudyNative");clearCache(true);destroy()};web=null;readerContainer=null;readerToolbar=null;readerLevel=null;previewMode=false;tts?.stop();draw()}
+    override fun onPause(){web?.evaluateJavascript("window.NPStopListening&&window.NPStopListening()",null);web?.onPause();tts?.stop();super.onPause()}
     override fun onResume(){super.onResume();web?.onResume();if(web==null&&vault.read().isNotEmpty())refresh();if(web!=null&&!previewMode&&readerLevel!=null)refresh{if(expiry(readerLevel!!)<=now())closeReader()}}
     override fun onDestroy(){appearanceWindow?.dismiss();handler.removeCallbacksAndMessages(null);web?.destroy();tts?.shutdown();worker.shutdownNow();syncWorker.shutdownNow();super.onDestroy()}
 }

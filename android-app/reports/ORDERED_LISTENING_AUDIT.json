@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "files": 391,
+  "audioFiles": 46,
+  "images": 294,
+  "removed2009Present": false,
+  "freeGroupsPerLevel": 2,
+  "sort": "N5\u2192N2, year ascending, source group ascending",
+  "paidMediaDeployment": "pending private upload; not included in APK",
+  "nodeTests": 43,
+  "androidUnitTests": 8,
+  "androidDeviceTests": 1,
+  "androidDeviceResult": "PASS: real packaged free media, question images, audio metadata, HTTP byte ranges and denied paid/cross-level/removed paths",
+  "liveGatewayVersion": 3,
+  "liveGatewayCurrentRule": "N5 all 2012/2018 groups public; other levels reward gated",
+  "liveGatewayCorrection": "Prepared and regression tested; deployment rejected by automatic approval review pending explicit user deployment authorization",
+  "privateStorageFilesObserved": 36,
+  "livePaidPlayback": "Unverified; private media upload incomplete"
+}

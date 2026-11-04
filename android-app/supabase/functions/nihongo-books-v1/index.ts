@@ -15,7 +15,7 @@ async function rpc(action:string,payload:Record<string,unknown>={},api='nihongo_
 const assetRpc=(action:string,payload:Record<string,unknown>)=>rpc(action,payload,'nihongo_books_assets_api');
 async function body(req:Request){const b=await req.text();if(new TextEncoder().encode(b).length>200000)throw new Fault(413,'Request too large');try{const d=JSON.parse(b||'{}');if(!d||typeof d!=='object'||Array.isArray(d))throw Error();return d}catch{throw new Fault(400,'Invalid JSON')}}
 async function auth(path:string,method:string,b:unknown){const r=await fetch(project+'/auth/v1'+path,{method,headers:{apikey:publicKey,'Content-Type':'application/json'},body:JSON.stringify(b),redirect:'error',signal:AbortSignal.timeout(15000)});const d=await r.json();if(!r.ok){const messages:Record<string,string>={email_not_confirmed:'This account needs support. Contact support or continue with Google.',invalid_credentials:'Email or password did not match. If you used Google before, continue with Google.',over_email_send_rate_limit:'Please wait before requesting another email.'};throw new Fault(r.status>=500?503:400,messages[d.error_code||d.code]||'Sign-in could not finish. Check your details or continue with Google.');}return d}
-function cleanState(s:any){if(!s||typeof s!=='object'||Array.isArray(s))throw new Fault(400,'Invalid study state');const c:any={positions:{}};for(const k of ['saved','learned']){if(s[k]&&!Array.isArray(s[k]))throw new Fault(400,'Invalid bookmarks');c[k]=(s[k]||[]).filter((v:unknown)=>typeof v==='string'&&v.length<200);if(c[k].length>2000)throw new Fault(400,'Bookmark limit reached; export your progress before clearing entries')};for(const k of ['lang','level','dark','bookMotion','readingSize'])if(['string','boolean'].includes(typeof s[k]))c[k]=s[k];for(const[k,v]of Object.entries(s.positions||{}))if(/^N[2-5]:(vocab|grammar|kanji)$/.test(k)&&Number.isInteger(v)&&Number(v)>=0&&Number(v)<100000)c.positions[k]=v;return c}
+function cleanState(s:any){if(!s||typeof s!=='object'||Array.isArray(s))throw new Fault(400,'Invalid study state');const c:any={positions:{}};for(const k of ['saved','learned']){if(s[k]&&!Array.isArray(s[k]))throw new Fault(400,'Invalid bookmarks');c[k]=(s[k]||[]).filter((v:unknown)=>typeof v==='string'&&v.length<200);if(c[k].length>2000)throw new Fault(400,'Bookmark limit reached; export your progress before clearing entries')};for(const k of ['lang','level','dark','bookMotion','readingSize'])if(['string','boolean'].includes(typeof s[k]))c[k]=s[k];for(const[k,v]of Object.entries(s.positions||{}))if(/^N[1-5]:(vocab|grammar|kanji)$/.test(k)&&Number.isInteger(v)&&Number(v)>=0&&Number(v)<100000)c.positions[k]=v;return c}
 function levelOf(path:string){const m=/^(?:data\/(?:lessons-|owner-|listening-)?|pdfs\/(?:jlpt-)?|audio\/(?:listening\/)?)(n[1-5])(?:[./-])/i.exec(path);return m?.[1].toUpperCase()}
 const referralRpc=(action:string,payload:Record<string,unknown>)=>rpc(action,payload,'nihongo_books_referral_api');
 async function appSession(accessToken:string,referralCode='',expectedId?:string){
@@ -108,6 +108,20 @@ export async function handle(req:Request):Promise<Response>{
    return json(await rpc(mapped[route][1],{...b,tokenHash}));
   }
   if(route.startsWith('/content/')&&req.method==='GET'){
+   const premiumPath=decodeURIComponent(route.slice(9));
+   if(/^(?:data\/lessons-n[1-5]\.json|kanji\/n[1-5]\.json|strokes\/n[1-5]\/[0-9a-f]{5}\.json)$/.test(premiumPath)){
+    const premiumLevel=/n[1-5]/.exec(premiumPath)![0].toUpperCase();
+    const entitlement=await rpc('allowed',{tokenHash,level:premiumLevel});if(entitlement.allowed!==true)throw new Fault(403,'Unlock this level in Reward Center');
+    const read=await fetch(project+'/rest/v1/rpc/nihongo_premium_read',{method:'POST',headers:{apikey:service,Authorization:'Bearer '+service,'Content-Type':'application/json'},body:JSON.stringify({asset_path:premiumPath,token_hash:tokenHash}),signal:AbortSignal.timeout(15000)});
+    if(!read.ok)throw new Fault(503,'Study content unavailable');
+    const item=await read.json();if(item.error)throw new Fault(item.status||403,item.error);
+    const content=item.payload;
+    if(premiumPath.startsWith('data/lessons-')){
+     const publications=await assetRpc('published',{tokenHash,level:premiumLevel});
+     for(const chapter of publications.chapters||[]){if(!Array.isArray(content[chapter.kind]))continue;const entries=new Map(content[chapter.kind].map((entry:any)=>[entry.id,entry]));for(const entry of chapter.entries)entries.set(entry.id,{...entry,level:premiumLevel,source_type:'owner-text',chapter_id:chapter.id,chapter_title:chapter.title});content[chapter.kind]=[...entries.values()]}
+    }
+    return json(content);
+   }
    const path=decodeURIComponent(route.slice(9));if(!/^[\w/.-]+$/.test(path)||path.includes('..')||path.includes('\\'))throw new Fault(400,'Invalid path');const level=levelOf(path);
    if(!level||level==='N1'||(/^(audio\/|data\/listening-)/.test(path)&&level!=='N5'))throw new Fault(403,'Unavailable in this release');
    const allowed=await rpc('allowed',{tokenHash,level});if(!allowed.allowed)throw new Fault(403,'Unlock this level in the Reward Center');

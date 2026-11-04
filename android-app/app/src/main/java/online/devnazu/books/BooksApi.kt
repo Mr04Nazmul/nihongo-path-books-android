@@ -37,4 +37,18 @@ class BooksApi(private val token: () -> String) {
             return (r.header("Content-Type")?:"application/octet-stream") to (r.body?.bytes()?:byteArrayOf())
         }
     }
+    fun listening(path:String,range:String?):android.webkit.WebResourceResponse {
+        require(Regex("^listening/n[1-5]/[a-z0-9/_.-]+\\.(?:json|mp3|webp|png)$").matches(path)&&!path.contains(".."))
+        val req=Request.Builder().url(BuildConfig.LISTENING_BASE.trimEnd('/')+"/content/"+path).header("Authorization","Bearer "+token()).header("Cache-Control","no-store")
+        if(range!=null&&Regex("^bytes=[0-9]+-[0-9]*$").matches(range))req.header("Range",range)
+        val response=client.newCall(req.build()).execute()
+        if(!response.isSuccessful){val code=response.code;response.close();throw ApiError(code,"Listening unavailable")}
+        val body=response.body?:run{response.close();error("Empty audio")}
+        val stream=object:java.io.FilterInputStream(body.byteStream()){override fun close(){try{super.close()}finally{response.close()}}}
+        val headers=mutableMapOf("Cache-Control" to "no-store", "Accept-Ranges" to (response.header("Accept-Ranges")?:"bytes"))
+        for(name in listOf("Content-Range","Content-Length"))response.header(name)?.let{headers[name]=it}
+        val type=(response.header("Content-Type")?:"application/octet-stream").substringBefore(';')
+        return android.webkit.WebResourceResponse(type,if(type=="application/json")"UTF-8" else null,response.code,if(response.code==206)"Partial Content" else "OK",headers,stream)
+    }
+
 }

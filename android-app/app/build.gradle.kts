@@ -8,9 +8,10 @@ android {
         applicationId = "online.devnazu.books"
         minSdk = 24
         targetSdk = 36
-        versionCode = 17
-        versionName = if (liveAds) "1.9.1" else "1.9.1-test"
+        versionCode = 21
+        versionName = if (liveAds) "1.13.0" else "1.13.0-test"
         buildConfigField("String", "API_BASE", "\"${setting("BOOKS_API_URL", "https://vjygltfnrmyghlwyjtwu.supabase.co/functions/v1/nihongo-books-v1")}\"")
+        buildConfigField("String", "LISTENING_BASE", "\"${setting("BOOKS_LISTENING_URL", "https://vjygltfnrmyghlwyjtwu.supabase.co/functions/v1/nihongo-listening-v1")}\"")
         buildConfigField("boolean", "LIVE_ADS", liveAds.toString())
         buildConfigField("String", "REWARDED_ID", "\"${if (liveAds) "ca-app-pub-3728341118830943/5055001578" else "ca-app-pub-3940256099942544/5224354917"}\"")
         manifestPlaceholders["admobAppId"] = if (liveAds) "ca-app-pub-3728341118830943~7145978290" else "ca-app-pub-3940256099942544~3347511713"

@@ -17,5 +17,5 @@ test('Supabase failure and missing delete credential fail closed',async()=>{
  await assert.rejects(supabaseAuth(env,fetch).deleteUser('x'),/configuration/);
 });
 test('N1 and non-N5 listening denied even if entitlement store would allow',async()=>{
- for(const path of ['data/n1.json','data/lessons-n1.json','pdfs/n1-vocab.pdf','data/listening-n4.json','audio/listening/n2/01.mp3'])await assert.rejects(protectedFile('/tmp',path,{id:'x'},{allowed:async()=>true}),/Unavailable/);
+ for(const path of ['data/n1.json','data/lessons-n1.json','pdfs/n1-vocab.pdf','data/listening-n4.json','audio/listening/n2/01.mp3'])await assert.rejects(protectedFile('/tmp',path,{id:'x'},{allowed:async()=>true}),/Unavailable|PDF books/);
 });
