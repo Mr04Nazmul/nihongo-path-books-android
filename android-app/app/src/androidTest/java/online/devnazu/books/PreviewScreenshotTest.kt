@@ -38,11 +38,11 @@ class PreviewScreenshotTest {
             Thread.sleep(1200)
             capture("home")
             scenario.onActivity { a ->
-                MainActivity::class.java.getDeclaredField("tab").apply { isAccessible = true }.set(a, "Quiz")
+                MainActivity::class.java.getDeclaredField("tab").apply { isAccessible = true }.set(a, "Books")
                 MainActivity::class.java.getDeclaredMethod("draw").apply { isAccessible = true }.invoke(a)
             }
             Thread.sleep(500)
-            capture("mock-test")
+            capture("books")
             scenario.onActivity { a ->
                 MainActivity::class.java.getDeclaredField("tab").apply { isAccessible = true }.set(a, "Progress")
                 MainActivity::class.java.getDeclaredMethod("draw").apply { isAccessible = true }.invoke(a)
