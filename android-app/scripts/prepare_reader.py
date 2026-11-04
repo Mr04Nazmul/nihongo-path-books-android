@@ -5,7 +5,7 @@ root=Path(__file__).resolve().parents[2]
 # Keep the supplied artwork in a text-safe source file, materialized before resource merging.
 logo=root/'android-app/app/build/generated/brand-res/drawable-nodpi/nihongo_logo.png'
 logo.parent.mkdir(parents=True,exist_ok=True)
-logo.write_bytes(base64.b64decode((root/'android-app/branding/logo.png.b64').read_text()))
+logo.write_bytes(base64.b64decode(''.join(p.read_text().strip() for p in sorted((root/'android-app/branding').glob('logo.*.b64')))))
 if not os.environ.get('BOOKS_SNAPSHOT_DIR') and not (root/'android-app/offline-shell').exists():
  subprocess.run([sys.executable,str(root/'android-app/scripts/sync_website.py')],check=True)
 source=Path(os.environ.get('BOOKS_SNAPSHOT_DIR',str(root/'android-app/offline-shell')))
