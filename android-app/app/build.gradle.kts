@@ -8,8 +8,8 @@ android {
         applicationId = "online.devnazu.books"
         minSdk = 24
         targetSdk = 36
-        versionCode = 21
-        versionName = if (liveAds) "1.13.0" else "1.13.0-test"
+        versionCode = 22
+        versionName = if (liveAds) "1.14.0" else "1.14.0-test"
         buildConfigField("String", "API_BASE", "\"${setting("BOOKS_API_URL", "https://vjygltfnrmyghlwyjtwu.supabase.co/functions/v1/nihongo-books-v1")}\"")
         buildConfigField("String", "LISTENING_BASE", "\"${setting("BOOKS_LISTENING_URL", "https://vjygltfnrmyghlwyjtwu.supabase.co/functions/v1/nihongo-listening-v1")}\"")
         buildConfigField("boolean", "LIVE_ADS", liveAds.toString())
@@ -35,20 +35,23 @@ android {
     compileOptions { isCoreLibraryDesugaringEnabled = true; sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
     sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/study-assets"))
+    sourceSets["main"].res.srcDir(layout.buildDirectory.dir("generated/brand-res"))
 }
 val prepareReader by tasks.registering(Exec::class) {
     workingDir(rootDir.parentFile)
     commandLine("python3", "android-app/scripts/prepare_reader.py")
     inputs.dir(rootDir.resolve("scripts"))
+    inputs.dir(rootDir.resolve("branding"))
     outputs.upToDateWhen { false }
     outputs.dir(layout.buildDirectory.dir("generated/study-assets"))
+    outputs.dir(layout.buildDirectory.dir("generated/brand-res"))
 }
 tasks.named("preBuild").configure { dependsOn(prepareReader) }
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("androidx.fragment:fragment-ktx:1.8.9")
-    implementation("androidx.webkit:webkit:1.13.0")
+    implementation("androidx.webkit:webkit:1.14.0")
     implementation("com.google.android.gms:play-services-ads:24.5.0")
     implementation("com.google.android.ump:user-messaging-platform:3.2.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
