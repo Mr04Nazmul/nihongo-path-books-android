@@ -210,29 +210,29 @@ class MainActivity : ComponentActivity() {
         if(tab=="Account"&&vault.read().isEmpty()){loginScreen();return}
         root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(paper);setPadding(dp(16),dp(25),dp(16),dp(8))}
         val head=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,0,0,dp(8))}
-        head.addView(ImageView(this).apply{setImageResource(R.drawable.ic_brand_book);scaleType=ImageView.ScaleType.CENTER_CROP},LinearLayout.LayoutParams(dp(if(compact)26 else 34),dp(if(compact)26 else 34)).apply{setMargins(0,0,dp(if(compact)6 else 10),0)})
-        head.addView(text("Nihongo\nPath Books",if(compact)12f else 14f).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END;typeface=android.graphics.Typeface.create("serif",android.graphics.Typeface.BOLD)},LinearLayout.LayoutParams(0,-2,1f))
+        head.addView(ImageView(this).apply{setImageResource(R.drawable.nihongo_logo);scaleType=ImageView.ScaleType.CENTER_CROP},LinearLayout.LayoutParams(dp(if(compact)26 else 34),dp(if(compact)26 else 34)).apply{setMargins(0,0,dp(if(compact)6 else 10),0)})
+        head.addView(text("Nihongo Path",if(compact)12f else 14f).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END;typeface=android.graphics.Typeface.create("serif",android.graphics.Typeface.BOLD)},LinearLayout.LayoutParams(0,-2,1f))
         head.addView(quietButton("♛"){tab="Rewards";draw()}.apply{contentDescription=tr("Rewards","ক্রেডিট");textSize=20f;setTextColor(Color.rgb(231,181,76))},LinearLayout.LayoutParams(dp(if(compact)24 else 30),dp(40)))
         head.addView(quietButton("◐"){appearanceDialog()}.apply{contentDescription=tr("Theme & colour","থিম ও রং")},LinearLayout.LayoutParams(dp(if(compact)24 else 30),dp(40)))
         head.addView(quietButton("ⓘ"){tab="About";draw()},LinearLayout.LayoutParams(dp(if(compact)24 else 28),dp(40)))
         head.addView(quietButton(if(bn)"EN" else "বাংলা"){bn=!bn;draw()},LinearLayout.LayoutParams(dp(if(compact)28 else 32),dp(40)));root.addView(head)
         val scroll=ScrollView(this);area=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL};scroll.addView(area);root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
         val nav=LinearLayout(this).apply{setPadding(0,dp(8),0,0)}
-        listOf("Home","Books","Quiz","Progress","Account").forEach { page->
-            val label=when(page){"Home"->tr("Home","হোম");"Books"->tr("Books","বই");"Quiz"->tr("Mock Test","মক টেস্ট");"Progress"->tr("Kanji","কানজি");else->tr("Profile","প্রোফাইল")}
-            val icons=mapOf("Home" to "⌂","Books" to "▣","Quiz" to "◇","Progress" to "▥","Account" to "♙")
+        listOf("Home","Books","Progress","Account").forEach { page->
+            val label=when(page){"Home"->tr("Home","হোম");"Books"->tr("Books","বই");"Progress"->tr("Kanji","কানজি");else->tr("Profile","প্রোফাইল")}
+            val icons=mapOf("Home" to "⌂","Books" to "▣","Progress" to "▥","Account" to "♙")
             nav.addView(quietButton(label){tab=page;draw()}.apply{contentDescription=label;setCompoundDrawablesWithIntrinsicBounds(null,NavIcon(icons.getValue(page),if(tab==page)accentInk else muted),null,null);setTextColor(if(tab==page)accentInk else muted);textSize=10f;setPadding(0,dp(4),0,0)},LinearLayout.LayoutParams(0,dp(56),1f))
         };root.addView(nav);setContentView(root)
         status=null
-        when(tab){"About"->about();"Admin"->administration();"Rewards"->rewards();"Account"->account();"Subjects"->subjectLibrary();"Books"->bookLevels();"Quiz"->quizLibrary();"Progress"->progressScreen();"Bookmarks"->bookmarksScreen();"ReaderSettings"->readerSettings();else->home()}
+        when(tab){"About"->about();"Admin"->administration();"Rewards"->rewards();"Account"->account();"Subjects"->subjectLibrary();"Books"->bookLevels();"Progress"->progressScreen();"Bookmarks"->bookmarksScreen();"ReaderSettings"->readerSettings();else->home()}
         if(status==null){status=text("");area.addView(status)}
     }
     private fun splash(){
         val frame=FrameLayout(this)
         val art=ImageView(this).apply{setImageResource(R.drawable.sakura_journey);scaleType=ImageView.ScaleType.CENTER_CROP};frame.addView(art,FrameLayout.LayoutParams(-1,-1))
         val overlay=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;setPadding(dp(30),dp(60),dp(30),dp(32));background=android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,intArrayOf(0x33050b16,0x11050b16,0xdd050b16.toInt()))}
-        overlay.addView(text("日本語の道",34f).apply{gravity=Gravity.CENTER;typeface=android.graphics.Typeface.SERIF})
-        overlay.addView(text("Nihongo Path Books",22f).apply{gravity=Gravity.CENTER})
+        overlay.addView(ImageView(this).apply{setImageResource(R.drawable.nihongo_logo);scaleType=ImageView.ScaleType.FIT_CENTER},LinearLayout.LayoutParams(dp(180),dp(180)))
+        overlay.addView(text("Nihongo Path",22f).apply{gravity=Gravity.CENTER})
         overlay.addView(Space(this),LinearLayout.LayoutParams(1,0,1f))
         overlay.addView(text(tr("Your complete Japanese learning library","আপনার জাপানি শেখার বইঘর"),19f).apply{gravity=Gravity.CENTER})
         overlay.addView(button("はじめる  →"){getPreferences(MODE_PRIVATE).edit().putBoolean("introduced",true).apply();draw()})
@@ -282,28 +282,8 @@ class MainActivity : ComponentActivity() {
             tile.addView(info,FrameLayout.LayoutParams(-1,-1));tile.setOnClickListener{chooseSubject(level)};area.addView(tile)
         }
     }
-    private fun quizLibrary(){futurePage(true)}
     private fun progressScreen(){openKanji(selected)}
-    private fun openListening(level:String){if(level !in Access.levels)return;selected=level;previewMode=vault.read().isEmpty()||expiry(level)<=now();openReader("listening.html?level=$level",level)}
     private fun openKanji(level:String){if(level !in Access.levels)return;selected=level;previewMode=vault.read().isEmpty()||expiry(level)<=now();openReader("kanji.html?level=$level"+if(previewMode)"&preview=1" else "",level)}
-    private fun futurePage(mock:Boolean){
-        area.addView(quietButton(tr("← Books","← বই")){tab="Books";draw()}.apply{setPadding(0,dp(4),0,dp(12))})
-        area.addView(text(if(mock)"JLPT Mock Test" else "Kanji Animation",30f).apply{typeface=android.graphics.Typeface.create("serif",android.graphics.Typeface.BOLD)})
-        add(if(mock)tr("Choose your level","আপনার লেভেল বেছে নিন")else tr("All your book kanji in one place","বইয়ের সব কানজি এক জায়গায়"),14f)
-        if(!mock){area.addView(text(tr("⌕  Search kanji or meaning","⌕  কানজি বা তার অর্থ দিয়ে খুঁজুন"),14f).apply{setPadding(dp(14),dp(12),dp(14),dp(12));setTextColor(muted);background=android.graphics.drawable.GradientDrawable().apply{setColor(surface);cornerRadius=dp(12).toFloat();setStroke(dp(1),border)};isEnabled=false})}
-        val levels=LinearLayout(this)
-        Access.levels.forEach{level->levels.addView(text(level,13f).apply{gravity=Gravity.CENTER;setPadding(dp(6),dp(10),dp(6),dp(10));setTextColor(if(level==selected)Color.WHITE else muted);background=android.graphics.drawable.GradientDrawable().apply{setColor(if(level==selected)accent else surface);cornerRadius=dp(10).toFloat();setStroke(dp(1),if(level==selected)accent else border)};setOnClickListener{selected=level;draw()}},LinearLayout.LayoutParams(0,dp(42),1f).apply{setMargins(dp(3),dp(12),dp(3),dp(12))})}
-        area.addView(levels)
-        if(mock){
-            val counts=mapOf("N5" to 48,"N4" to 56,"N3" to 55,"N2" to 63,"N1" to 73)
-            card{
-                addView(text("$selected Listening",24f))
-                addView(text(tr("2012 → 2018 · ${counts[selected]?:0} questions","২০১২ → ২০১৮ · ${counts[selected]?:0}টি প্রশ্ন"),15f))
-                addView(text(tr("Original question pictures, audio and answer keys. Practice or one-play exam practice by question group.","মূল প্রশ্নের ছবি, অডিও ও উত্তর। প্রথম ২টি গ্রুপ ফ্রি; বাকি গ্রুপ রিওয়ার্ডে খুলবে। Practice ও Exam practice আছে।"),14f))
-                addView(button(tr("Start listening mock →","লিসেনিং মক শুরু করুন →")){openListening(selected)})
-            }
-        }
-    }
     private fun chooseSubject(level:String){if(level !in Access.levels){message("N1 · Coming Soon");return};selected=level;tab="Subjects";draw()}
     private fun subjectLibrary(){
         add("←  $selected Books",24f)
@@ -313,7 +293,6 @@ class MainActivity : ComponentActivity() {
             addView(button(tr("Read 5 free →","৫টি ফ্রি পড়ুন →")){previewMode=true;openReader("study.html?level=$selected&section=$kind&preview=1",selected)})
             addView(button(tr("Read complete book →","সম্পূর্ণ বই পড়ুন →")){previewMode=false;if(expiry(selected)>now())openReader("study.html?level=$selected&section=$kind",selected)else{tab=if(vault.read().isEmpty())"Account" else "Rewards";draw()}})
         }}
-        area.addView(button(tr("$selected Listening","$selected লিসেনিং")){openListening(selected)})
         area.addView(button(tr("Unlock with ads →","বিজ্ঞাপন দেখে খুলুন →")){tab=if(vault.read().isEmpty())"Account" else "Rewards";draw()})
     }
     private fun rewards(){
@@ -367,10 +346,13 @@ class MainActivity : ComponentActivity() {
         themedDialog().setTitle(tr("Password help","পাসওয়ার্ডের সহায়তা")).setMessage(tr("Contact support for account recovery. We will check account ownership before changing access. Never send your Gmail password.\n\nHossain Najmul\nWhatsApp: +81 70-9036-6509","অ্যাকাউন্ট ফিরে পেতে Support-এ যোগাযোগ করুন। মালিকানা যাচাই করে সহায়তা করা হবে। Gmail-এর পাসওয়ার্ড পাঠাবেন না।\n\nHossain Najmul\nWhatsApp: +81 70-9036-6509")).setPositiveButton(tr("Close","বন্ধ"),null).show()
     }
     private fun about(){
-        add(tr("About Nihongo Path Books","Nihongo Path Books সম্পর্কে"),27f)
-        card{addView(text(tr("Your Japanese study companion","আপনার জাপানি শেখার সঙ্গী"),22f));addView(text("N5–N2 · বাংলা + English"));addView(text("Version "+BuildConfig.VERSION_NAME,13f))}
+        add(tr("About Nihongo Path","Nihongo Path সম্পর্কে"),27f)
+        card{addView(text(tr("Your Japanese study companion","আপনার জাপানি শেখার সঙ্গী"),22f));addView(text("N5–N1 · বাংলা + English"));addView(text("Version "+BuildConfig.VERSION_NAME,13f))}
         card{addView(text(tr("Support","সহায়তা"),22f));addView(text("Hossain Najmul\nWhatsApp: +81 70-9036-6509"));addView(text(tr("For login, access or lesson problems, include your app version and level. Never send a password.","লগইন, পড়ার অনুমতি বা পাঠের সমস্যায় অ্যাপের version ও level জানান। পাসওয়ার্ড পাঠাবেন না।")))}
         area.addView(button(tr("Ad privacy choices","বিজ্ঞাপনের গোপনীয়তার পছন্দ")){ads.privacy {}})
+        area.addView(button(tr("Licenses & credits","লাইসেন্স ও কৃতজ্ঞতা")){
+            themedDialog().setTitle(tr("Licenses & credits","লাইসেন্স ও কৃতজ্ঞতা")).setMessage("Kanji stroke diagrams: KanjiVG © Ulrich Apel. Licensed under CC BY-SA 3.0.\nhttps://kanjivg.tagaini.net\n\nSVG paths converted to JSON; stroke geometry unchanged.\nhttps://creativecommons.org/licenses/by-sa/3.0/\n\nNoto Sans Bengali and Noto Sans JP: SIL Open Font License 1.1.").setPositiveButton(tr("Close","বন্ধ"),null).show()
+        })
         val diagnostic=CrashDiagnostics.summary(this)
         if(diagnostic.isNotEmpty())area.addView(button(tr("Copy crash details for support","সহায়তার জন্য crash তথ্য কপি করুন")){
             (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("Nihongo crash details",diagnostic))
@@ -422,8 +404,8 @@ class MainActivity : ComponentActivity() {
         root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;background=LoginBlossoms();setPadding(dp(24),dp(24),dp(24),dp(20))}
         root.addView(quietButton("←"){tab="Home";draw()}.apply{contentDescription=tr("Back to home","হোমে ফিরুন")},LinearLayout.LayoutParams(dp(38),dp(32)))
         val scroll=ScrollView(this).apply{isFillViewport=true};area=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER_HORIZONTAL};scroll.addView(area);root.addView(scroll,LinearLayout.LayoutParams(-1,0,1f));status=null
-        area.addView(ImageView(this).apply{setImageResource(R.drawable.login_emblem)},LinearLayout.LayoutParams(dp(82),dp(82)).apply{gravity=Gravity.CENTER_HORIZONTAL;setMargins(0,dp(5),0,dp(8))})
-        area.addView(text("Nihongo\nPath Books",28f).apply{gravity=Gravity.CENTER;typeface=android.graphics.Typeface.create("serif",android.graphics.Typeface.BOLD);setPadding(0,0,0,0)})
+        area.addView(ImageView(this).apply{setImageResource(R.drawable.nihongo_logo)},LinearLayout.LayoutParams(dp(82),dp(82)).apply{gravity=Gravity.CENTER_HORIZONTAL;setMargins(0,dp(5),0,dp(8))})
+        area.addView(text("Nihongo Path",28f).apply{gravity=Gravity.CENTER;typeface=android.graphics.Typeface.create("serif",android.graphics.Typeface.BOLD);setPadding(0,0,0,0)})
         area.addView(text(tr("Learn Japanese Step by Step","ধাপে ধাপে জাপানি শিখুন"),12f).apply{gravity=Gravity.CENTER;setTextColor(muted);setPadding(0,dp(9),0,dp(22))})
         val form=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL};area.addView(form,LinearLayout.LayoutParams(-1,-2))
         val email=loginField(form,tr("Email address","ইমেইল ঠিকানা"),"♙").apply{inputType=33;setText(signInEmail);if(Build.VERSION.SDK_INT>=26)setAutofillHints("emailAddress")}
@@ -465,7 +447,7 @@ class MainActivity : ComponentActivity() {
         readerLevel=level;readerExpiry=level?.let{expiry(it)}?:Long.MAX_VALUE
         val container=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(0,dp(28),0,0);setBackgroundColor(paper)}
         readerContainer=container
-        val toolbar=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setBackgroundColor(paper);if(requestPage=="listening.html")visibility=View.GONE};readerToolbar=toolbar
+        val toolbar=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setBackgroundColor(paper)};readerToolbar=toolbar
         toolbar.addView(quietButton(tr("← Library","← বইঘর")){closeReader()},LinearLayout.LayoutParams(0,dp(44),1f));toolbar.addView(quietButton("◐"){appearanceDialog()}.apply{contentDescription=tr("Theme & colour","থিম ও রং")},LinearLayout.LayoutParams(dp(52),dp(44)));container.addView(toolbar)
         val loader=WebViewAssetLoader.Builder().addPathHandler("/assets/",WebViewAssetLoader.AssetsPathHandler(this)).build()
         val view=WebView(this);web=view;view.setBackgroundColor(paper)
@@ -474,11 +456,10 @@ class MainActivity : ComponentActivity() {
         view.addJavascriptInterface(object{
             @JavascriptInterface fun appearance():String=appearanceJson()
             @JavascriptInterface fun learningProfile():String=data.optJSONObject("user")?.optString("id")?.takeIf{it.isNotBlank()}?:"guest"
-            @JavascriptInterface fun selectListeningLevel(value:String){if(requestPage!="listening.html"||value !in Access.levels)return;runOnUiThread{closeReader();openListening(value)}}
             @JavascriptInterface fun showAppearance(){runOnUiThread{appearanceDialog()}}
             @JavascriptInterface fun readerAccess():String=JSONObject().put("preview",requestPreview).put("remainingMs",if(requestPreview)0 else (readerExpiry-now()).coerceAtLeast(0)).toString()
             @JavascriptInterface fun selectKanjiLevel(value:String){if(requestPage!="kanji.html"||value !in Access.levels)return;runOnUiThread{closeReader();tab="Progress";openKanji(value)}}
-            @JavascriptInterface fun navigate(value:String){if(value !in listOf("Home","Books","Quiz","Progress","Account"))return;runOnUiThread{closeReader();tab=value;draw()}}
+            @JavascriptInterface fun navigate(value:String){if(value !in listOf("Home","Books","Progress","Account","About"))return;runOnUiThread{closeReader();tab=value;draw()}}
             @JavascriptInterface fun saveProgress(value:String){
                 if(vault.read().isNotEmpty() && value.length<150000){
                     val owner=data.optJSONObject("user")?.optString("id")
@@ -498,7 +479,6 @@ class MainActivity : ComponentActivity() {
                 val relative=r.url.path.orEmpty().removePrefix("/assets/reader/")
                 if(relative.endsWith(".html")&&(relative!=requestPage||!Access.readerScreen(relative)))return true
                 if(relative=="study.html"||relative=="kanji.html"){if(r.url.getQueryParameter("level")!=level)return true}
-                if(relative=="listening.html"&&r.url.getQueryParameter("level")!=level)return true
                 return false
             }
             override fun shouldInterceptRequest(v:WebView,r:WebResourceRequest):WebResourceResponse {
@@ -506,28 +486,7 @@ class MainActivity : ComponentActivity() {
                 if(!Access.internal(r.url.toString()))return denied()
                 val path=r.url.path!!.removePrefix("/assets/reader/")
                 if(path.endsWith(".html")&&!Access.readerScreen(path))return denied()
-                if(Regex("^data/listening-n[2-4]\\.json$").matches(path)||Regex("^audio/(?:listening/)?n[1-4]/").containsMatchIn(path))return denied()
-                if(path.startsWith("listening/")){
-                    if(requestPage!="listening.html"||Access.contentLevel(path)!=level||level==null)return denied()
-                    val free=Access.freeListeningAsset(path,level)
-                    if(free!=null)return try{
-                        val bytes=assets.open(free).use{it.readBytes()}
-                        val mime=when{path.endsWith(".mp3")->"audio/mpeg";path.endsWith(".webp")->"image/webp";else->"application/json"}
-                        val headers=mutableMapOf("Cache-Control" to "no-store","Accept-Ranges" to "bytes")
-                        val range=r.requestHeaders.entries.firstOrNull{it.key.equals("Range",true)}?.value
-                        if(range!=null){
-                            val match=Regex("^bytes=([0-9]+)-([0-9]*)$").matchEntire(range)?:return denied(416)
-                            val start=match.groupValues[1].toLongOrNull()?:return denied(416)
-                            val end=if(match.groupValues[2].isEmpty())bytes.size.toLong()-1 else match.groupValues[2].toLongOrNull()?:return denied(416)
-                            if(start>=bytes.size||end<start)return denied(416)
-                            val last=minOf(end,bytes.size.toLong()-1).toInt();val first=start.toInt()
-                            headers["Content-Range"]="bytes $first-$last/${bytes.size}";headers["Content-Length"]=(last-first+1).toString()
-                            WebResourceResponse(mime,null,206,"Partial Content",headers,ByteArrayInputStream(bytes,first,last-first+1))
-                        }else{headers["Content-Length"]=bytes.size.toString();WebResourceResponse(mime,if(mime=="application/json")"UTF-8" else null,200,"OK",headers,ByteArrayInputStream(bytes))}
-                    }catch(_:Exception){denied(503)}
-                    if(requestPreview||vault.read().isEmpty()||expiry(level)<=now())return denied()
-                    return try{api.listening(path,r.requestHeaders.entries.firstOrNull{it.key.equals("Range",true)}?.value)}catch(_:Exception){denied(503)}
-                }
+                if(path.startsWith("listening/")||path.startsWith("audio/")||path.startsWith("data/listening-"))return denied()
                 if(path.startsWith("pdfs/")||path.startsWith("data/owner-"))return denied()
                 if(path.endsWith(".html")&&path!=requestPage)return denied()
                 if((path=="study.html"||path=="kanji.html")&&r.url.getQueryParameter("level")!=level)return denied()
@@ -556,7 +515,7 @@ class MainActivity : ComponentActivity() {
         container.addView(view,LinearLayout.LayoutParams(-1,0,1f));setContentView(container);view.loadUrl("https://appassets.androidplatform.net/assets/reader/$route")
     }
     private fun closeReader(){if(tab=="Progress")tab="Books";web?.apply{stopLoading();loadUrl("about:blank");removeJavascriptInterface("StudyNative");clearCache(true);destroy()};web=null;readerContainer=null;readerToolbar=null;readerLevel=null;previewMode=false;tts?.stop();draw()}
-    override fun onPause(){web?.evaluateJavascript("window.NPStopListening&&window.NPStopListening()",null);web?.onPause();tts?.stop();super.onPause()}
+    override fun onPause(){web?.onPause();tts?.stop();super.onPause()}
     override fun onResume(){super.onResume();web?.onResume();if(web==null&&vault.read().isNotEmpty())refresh();if(web!=null&&!previewMode&&readerLevel!=null)refresh{if(expiry(readerLevel!!)<=now())closeReader()}}
     override fun onDestroy(){appearanceWindow?.dismiss();handler.removeCallbacksAndMessages(null);web?.destroy();tts?.shutdown();worker.shutdownNow();syncWorker.shutdownNow();super.onDestroy()}
 }

@@ -1,7 +1,11 @@
 """Build isolated Android reading surfaces; never ship the website navigation shell."""
-import json,re,shutil,hashlib,subprocess,sys,os
+import json,re,shutil,hashlib,subprocess,sys,os,base64
 from pathlib import Path
 root=Path(__file__).resolve().parents[2]
+# Keep the supplied artwork in a text-safe source file, materialized before resource merging.
+logo=root/'android-app/app/build/generated/brand-res/drawable-nodpi/nihongo_logo.png'
+logo.parent.mkdir(parents=True,exist_ok=True)
+logo.write_bytes(base64.b64decode(''.join(p.read_text().strip() for p in sorted((root/'android-app/branding').glob('logo.*.b64')))))
 if not os.environ.get('BOOKS_SNAPSHOT_DIR') and not (root/'android-app/offline-shell').exists():
  subprocess.run([sys.executable,str(root/'android-app/scripts/sync_website.py')],check=True)
 source=Path(os.environ.get('BOOKS_SNAPSHOT_DIR',str(root/'android-app/offline-shell')))
@@ -19,7 +23,7 @@ s=re.sub(r'<a\b[^>]*href=["\'](?!#)[^"\']*["\'][^>]*>.*?</a>','',s,flags=re.S|re
 s=s.replace('</head>','<style>body{background:#faf6ef!important;color:#27252a!important}main{padding:18px!important}section{border-radius:16px!important}h1{font-size:26px!important}table{font-size:15px!important}</style></head>')
 (basics/'index.html').write_text(s)
 for p in (root/'android-app/reader').glob('*.html'):
- if p.name!='pdf-reader.html':shutil.copy2(p,out/p.name)
+ if p.name not in ['pdf-reader.html','listening.html']:shutil.copy2(p,out/p.name)
 shutil.copy2(root/'android-app/reader/compat.js',out/'compat.js')
 shutil.copy2(root/'android-app/reader/strokes.js',out/'strokes.js')
 shutil.copy2(root/'android-app/reader/appearance.js',out/'appearance.js')
@@ -30,8 +34,6 @@ for html in out.rglob('*.html'):
  if '</head>' in markup:markup=markup.replace('</head>',script+'</head>',1)
  else:markup=markup.replace('<main',script+'<main',1)
  html.write_text(markup)
-for name in ['listening.js','listening-core.js','listening.css']:
- shutil.copy2(root/'android-app/reader'/name,out/name)
 preview=out/'previews';preview.mkdir()
 for level in ['n5','n4','n3','n2','n1']:
  curriculum=root/'android-app/curriculum'/f'lessons-{level}.json'
@@ -39,22 +41,6 @@ for level in ['n5','n4','n3','n2','n1']:
  free={kind:data[kind][:5] for kind in ['vocab','grammar','kanji']}
  assert all(len(rows)==5 for rows in free.values())
  (preview/f'lessons-{level}.json').write_text(json.dumps(free,ensure_ascii=False))
-# Only the first two complete audio groups per level are free. No paid media enters the APK.
-listening_source=Path(os.environ.get('BOOKS_LISTENING_MEDIA_DIR',str(root/'android-app/listening-media')))
-subprocess.run([sys.executable,str(root/'android-app/scripts/ensure_free_audio.py')],check=True)
-for level in ['n5','n4','n3','n2','n1']:
- catalogue=listening_source/'listening'/level/'catalog.json'
- if not catalogue.is_file():raise SystemExit('Missing listening media: set BOOKS_LISTENING_MEDIA_DIR to the reviewed media directory')
- data=json.loads(catalogue.read_text())
- assert data['level']==level.upper() and all(s['kind']=='practice' and s['year'] in ['2012','2018'] for s in data['sections'])
- target=preview/'listening'/level;target.mkdir(parents=True)
- # The catalogue contains metadata only; question images/audio/answer keys remain gated.
- (target/'catalog.json').write_text(json.dumps(data,ensure_ascii=False))
- free=[s for s in data['sections'] if s['year']=='2012' and s['group'] in [1,2]]
- assert len(free)==2
- for section in free:
-  folder=section['audio'].rsplit('/',1)[0]
-  shutil.copytree(listening_source/folder,preview/folder)
 # Animation previews contain only ten per-level entries and their exact stroke assets.
 kanji=json.loads((root/'android-app/curriculum/kanji-catalog.json').read_text())
 strokes=json.loads((root/'android-app/curriculum/kanji-strokes.json').read_text())
@@ -86,10 +72,7 @@ for html in out.glob('*.html'):
   markup=script_pattern.sub(lambda m:m.group(1)+(next(compiled) if m.group(2).strip() else m.group(2))+m.group(3),markup)
  markup=markup.replace('<script','<script>window.readerErrors=[];window.onerror=function(message,source,line){window.readerErrors.push(String(message)+" @"+line);};</script><script src="compat.js"></script><script',1)
  html.write_text(markup)
-# Listening is an app-contained controller rather than the website application.
-result=subprocess.run(['node',str(root/'android-app/scripts/compile_reader_scripts.mjs')],input=json.dumps([(out/'listening.js').read_text(),(out/'strokes.js').read_text(),(out/'listening-core.js').read_text()]),capture_output=True,text=True,check=True)
-compiled_assets=json.loads(result.stdout)
-(out/'listening.js').write_text(compiled_assets[0])
-(out/'strokes.js').write_text(compiled_assets[1])
-
-(out/'listening-core.js').write_text(compiled_assets[2])
+# Compile the kanji animation controller for Android 7 WebView.
+result=subprocess.run(['node',str(root/'android-app/scripts/compile_reader_scripts.mjs')],input=json.dumps([(out/'strokes.js').read_text()]),capture_output=True,text=True,check=True)
+(out/'strokes.js').write_text(json.loads(result.stdout)[0])
+assert not any('listening' in str(p.relative_to(out)).lower() or p.suffix=='.mp3' for p in out.rglob('*'))

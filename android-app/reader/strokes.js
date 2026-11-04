@@ -29,7 +29,7 @@
       button('পরের স্ট্রোক →',function(){stop();index=Math.min(index+1,paths.length);progress=0;paint();play.textContent='▶ চালু';});
       var speed=document.createElement('select');speed.setAttribute('aria-label','Animation speed');[[0.5,'ধীরে'],[1,'স্বাভাবিক'],[2,'দ্রুত']].forEach(function(pair){var o=document.createElement('option');o.value=pair[0];o.textContent=pair[1];o.selected=pair[0]===1;speed.appendChild(o);});controls.appendChild(speed);
       function tick(time){if(!alive||!playing)return;if(!host.isConnected){dispose();return;}if(previous)progress+=Math.min(time-previous,100)/700*Number(speed.value);previous=time;if(progress>=1){index++;progress=0;}paint();if(index>=paths.length){stop();play.textContent='▶ আবার চালু';return;}frame=requestAnimationFrame(tick);}
-      var credit=document.createElement('p');credit.style.cssText='font-size:11px;line-height:1.5';credit.textContent='KanjiVG © Ulrich Apel · CC BY-SA 3.0 · kanjivg.tagaini.net · SVG paths converted to JSON; stroke geometry unchanged. License: creativecommons.org/licenses/by-sa/3.0/';host.appendChild(credit);paint();play.onclick();
+      var credit=document.createElement('button');credit.type='button';credit.style.cssText='font-size:11px;padding:6px 0;background:transparent;border:0;opacity:.75';credit.textContent='KanjiVG · লাইসেন্স';credit.setAttribute('aria-label','KanjiVG license and credits');credit.onclick=function(){window.StudyNative && window.StudyNative.navigate('About')};host.appendChild(credit);paint();play.onclick();
     }).catch(function(){if(alive)host.textContent='এই অক্ষরের যাচাইকৃত স্ট্রোক পাওয়া যায়নি।';});
     return dispose;
   }
