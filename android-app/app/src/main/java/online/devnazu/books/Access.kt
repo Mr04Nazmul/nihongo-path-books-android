@@ -10,7 +10,7 @@ object Access {
         u.scheme == "https" && u.host == "appassets.androidplatform.net" && u.port == -1 && u.userInfo == null &&
             u.path.startsWith("/assets/reader/") && !u.path.contains("..") && !u.path.contains('\\')
     } catch (_: Exception) { false }
-    fun readerScreen(route:String)=route.substringBefore('?').substringBefore('#') in setOf("study.html","kanji.html","listening.html","basics/index.html")
+    fun readerScreen(route:String)=route.substringBefore('?').substringBefore('#') in setOf("study.html","kanji.html","basics/index.html")
     fun contentLevel(path:String):String? {
         val match=Regex("^(?:data/(?:lessons-|listening-)?|kanji/|strokes/|audio/(?:listening/)?|listening/)(n[1-5])(?:[./-])",RegexOption.IGNORE_CASE).find(path)
         return match?.groupValues?.get(1)?.uppercase()
