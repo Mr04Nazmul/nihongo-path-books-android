@@ -8,10 +8,11 @@ android {
         applicationId = "online.devnazu.books"
         minSdk = 24
         targetSdk = 36
-        versionCode = 22
-        versionName = if (liveAds) "1.14.0" else "1.14.0-test"
+        versionCode = 23
+        versionName = if (liveAds) "1.15.0" else "1.15.0-test"
         buildConfigField("String", "API_BASE", "\"${setting("BOOKS_API_URL", "https://vjygltfnrmyghlwyjtwu.supabase.co/functions/v1/nihongo-books-v1")}\"")
         buildConfigField("String", "LISTENING_BASE", "\"${setting("BOOKS_LISTENING_URL", "https://vjygltfnrmyghlwyjtwu.supabase.co/functions/v1/nihongo-listening-v1")}\"")
+        buildConfigField("String", "PLAY_BILLING_API", "\"https://vjygltfnrmyghlwyjtwu.supabase.co/functions/v1/nihongo-play-billing\"")
         buildConfigField("boolean", "LIVE_ADS", liveAds.toString())
         buildConfigField("String", "REWARDED_ID", "\"${if (liveAds) "ca-app-pub-3728341118830943/5055001578" else "ca-app-pub-3940256099942544/5224354917"}\"")
         manifestPlaceholders["admobAppId"] = if (liveAds) "ca-app-pub-3728341118830943~7145978290" else "ca-app-pub-3940256099942544~3347511713"
@@ -48,6 +49,7 @@ val prepareReader by tasks.registering(Exec::class) {
 }
 tasks.named("preBuild").configure { dependsOn(prepareReader) }
 dependencies {
+    implementation("com.android.billingclient:billing-ktx:8.0.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("androidx.fragment:fragment-ktx:1.8.9")

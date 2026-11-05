@@ -17,6 +17,7 @@ import java.util.UUID
 import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
+    private lateinit var premiumBilling: PlayPremiumBilling
     private lateinit var vault: TokenVault
     private lateinit var api: BooksApi
     private lateinit var ads: RewardAds
@@ -98,6 +99,8 @@ class MainActivity : ComponentActivity() {
         CrashDiagnostics.install(this)
         window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         vault=TokenVault(this);api=BooksApi {vault.read()};ads=RewardAds(this)
+        premiumBilling=PlayPremiumBilling(this,{vault.read()},{data.optJSONObject("user")?.optString("id")},{message(it)},{refresh()})
+        premiumBilling.connect()
         tts=TextToSpeech(this) { result -> if(result==TextToSpeech.SUCCESS)tts?.language=Locale.JAPANESE }
         onBackPressedDispatcher.addCallback(this,object:OnBackPressedCallback(true){override fun handleOnBackPressed(){if(web!=null)closeReader() else if(tab!="Home"){tab="Home";draw()}else finish()}})
         if(!getPreferences(MODE_PRIVATE).getBoolean("introduced",false))splash() else draw();handler.post(ticker)
@@ -383,11 +386,20 @@ class MainActivity : ComponentActivity() {
             }
             card{
                 addView(text(tr("ACCOUNT","অ্যাকাউন্ট"),11f).apply{setTextColor(muted)})
+                addView(quietButton(tr("Premium subscription","Premium সাবস্ক্রিপশন")){premiumDialog()})
                 addView(quietButton(tr("Sign out","লগআউট")){signOut(false)})
                 addView(quietButton(tr("Security & account data","নিরাপত্তা ও অ্যাকাউন্টের তথ্য")){accountSecurity()})
                 if(profile.optString("role")=="admin")addView(quietButton(tr("Admin Dashboard","অ্যাডমিন ড্যাশবোর্ড")){tab="Admin";draw()})
             }
         }
+    }
+    private fun premiumDialog(){
+        val price=premiumBilling.price()
+        val plan=if(price==null)tr("Monthly plan is not available yet.","মাসিক প্ল্যান এখনও পাওয়া যাচ্ছে না।") else tr("$price / month. Auto-renews monthly until canceled in Google Play.","$price / মাস। Google Play থেকে বাতিল না করা পর্যন্ত প্রতি মাসে নবায়ন হবে।")
+        themedDialog().setTitle("Nihongo Premium").setMessage(tr("N5–N1 complete learning access.\n\n","N5–N1 সম্পূর্ণ পড়ার অনুমতি।\n\n")+plan)
+            .setPositiveButton(tr("Continue with Google Play","Google Play দিয়ে চালিয়ে যান")){_,_->premiumBilling.purchase()}
+            .setNeutralButton(tr("Restore purchases","কেনাকাটা পুনরুদ্ধার")){_,_->premiumBilling.connect();premiumBilling.restore()}
+            .setNegativeButton(tr("Manage subscription","সাবস্ক্রিপশন পরিচালনা")){_,_->startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse("https://play.google.com/store/account/subscriptions?sku=nihongo_premium&package=online.devnazu.books")))}.show()
     }
     private fun profileRow(icon:String,title:String,subtitle:String,action:()->Unit):LinearLayout=LinearLayout(this).apply{
         gravity=Gravity.CENTER_VERTICAL;setPadding(0,dp(10),0,dp(10));addView(text(icon,24f).apply{setTextColor(accentInk)},LinearLayout.LayoutParams(dp(40),-2))
@@ -516,6 +528,6 @@ class MainActivity : ComponentActivity() {
     }
     private fun closeReader(){if(tab=="Progress")tab="Books";web?.apply{stopLoading();loadUrl("about:blank");removeJavascriptInterface("StudyNative");clearCache(true);destroy()};web=null;readerContainer=null;readerToolbar=null;readerLevel=null;previewMode=false;tts?.stop();draw()}
     override fun onPause(){web?.onPause();tts?.stop();super.onPause()}
-    override fun onResume(){super.onResume();web?.onResume();if(web==null&&vault.read().isNotEmpty())refresh();if(web!=null&&!previewMode&&readerLevel!=null)refresh{if(expiry(readerLevel!!)<=now())closeReader()}}
-    override fun onDestroy(){appearanceWindow?.dismiss();handler.removeCallbacksAndMessages(null);web?.destroy();tts?.shutdown();worker.shutdownNow();syncWorker.shutdownNow();super.onDestroy()}
+    override fun onResume(){super.onResume();if(::premiumBilling.isInitialized)premiumBilling.connect();web?.onResume();if(web==null&&vault.read().isNotEmpty())refresh();if(web!=null&&!previewMode&&readerLevel!=null)refresh{if(expiry(readerLevel!!)<=now())closeReader()}}
+    override fun onDestroy(){if(::premiumBilling.isInitialized)premiumBilling.close();appearanceWindow?.dismiss();handler.removeCallbacksAndMessages(null);web?.destroy();tts?.shutdown();worker.shutdownNow();syncWorker.shutdownNow();super.onDestroy()}
 }
