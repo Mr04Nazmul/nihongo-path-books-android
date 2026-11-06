@@ -113,6 +113,13 @@ jobs:
         with:
           name: Nihongo-Path-Books-signed-AAB
           path: android-app/app/build/outputs/bundle/release/*.aab
+      - name: Preserve R8 mapping for release crash reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nihongo-Path-Books-release-R8-mapping
+          path: android-app/app/build/outputs/mapping/release/
+          if-no-files-found: error
+          retention-days: 90
       - name: Build owner AdMob APK (no live ads requested by CI)
         env:
           BOOKS_LIVE_ADS: 'true'
