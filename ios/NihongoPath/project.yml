@@ -1,0 +1,63 @@
+name: NihongoPath
+options:
+  bundleIdPrefix: online.devnazu
+  deploymentTarget:
+    iOS: '16.0'
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    MARKETING_VERSION: '1.0.0'
+    CURRENT_PROJECT_VERSION: '1'
+    DEVELOPMENT_TEAM: ''
+    CODE_SIGN_STYLE: Automatic
+    TARGETED_DEVICE_FAMILY: '1,2'
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    SWIFT_STRICT_CONCURRENCY: targeted
+targets:
+  NihongoPath:
+    type: application
+    platform: iOS
+    sources:
+      - App
+      - Core
+      - Views
+      - path: Resources/StudyData
+        type: folder
+      - path: Resources/Assets.xcassets
+      - path: Resources/KANJIVG-LICENSE.txt
+      - path: Resources/PrivacyInfo.xcprivacy
+    info:
+      path: Config/Info.plist
+      properties:
+        CFBundleDisplayName: Nihongo Path
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        CFBundleURLTypes:
+          - CFBundleURLName: Nihongo Books OAuth
+            CFBundleURLSchemes: [nihongopathbooks]
+        ITSAppUsesNonExemptEncryption: false
+        UIBackgroundModes: []
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: online.devnazu.books.ios
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.education
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+  NihongoPathTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Tests]
+    dependencies:
+      - target: NihongoPath
+schemes:
+  NihongoPath:
+    build:
+      targets:
+        NihongoPath: all
+        NihongoPathTests: [test]
+    test:
+      targets: [NihongoPathTests]
+    archive:
+      config: Release
