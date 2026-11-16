@@ -1,0 +1,11 @@
+build/
+*.xcresult/
+*.xcodeproj/
+*.xcworkspace/
+*.ipa
+*.p12
+*.mobileprovision
+*.xcuserstate
+build-test.log
+iPhone-home.png
+NihongoPath-iOS-Simulator.zip
