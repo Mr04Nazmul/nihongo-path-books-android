@@ -19,4 +19,4 @@
 .lesson-card-actions button{padding:5px 3px;white-space:nowrap}
 .lesson-card-actions button:disabled{opacity:.45}
 .lesson-card button:focus-visible,.lesson-card select:focus-visible{outline:2px solid var(--lesson-ink);outline-offset:2px}
-:is(body.dark,html.dark,[data-app-theme=dark]) .lesson-card{--lesson-ink:#ffdeef;--lesson-surface:#351d31;--lesson-line:#9c5178;background:linear-gradient(145deg,#3b2137,#251726);box-shadow:0 5px 16px #12031073,inset 0 0 0 1px #e77fb42c}
+[data-app-theme=dark] .lesson-card{--lesson-ink:#ffdeef;--lesson-surface:#351d31;--lesson-line:#9c5178;background:linear-gradient(145deg,#3b2137,#251726);box-shadow:0 5px 16px #12031073,inset 0 0 0 1px #e77fb42c}

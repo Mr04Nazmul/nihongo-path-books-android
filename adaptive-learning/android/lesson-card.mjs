@@ -2,7 +2,7 @@ const pageSize = 5;
 const selections = new Map();
 
 export function renderLessonCard({ root, rows, level, kind, preview, learned, open, refresh }) {
-  if (!rows.length) { root.replaceChildren(); return rows; }
+  if (!rows.length) { root.textContent = ''; return rows; }
   const scope = [level, kind, preview].join(':');
   const current = selections.get(scope) ?? { lesson: 0, item: 0 };
   selections.set(scope, current);
@@ -70,6 +70,7 @@ export function renderLessonCard({ root, rows, level, kind, preview, learned, op
   next.disabled = current.lesson + 1 === pageCount;
   actions.append(prev, control('▶ পাঠ শুরু', 'lesson-card-start', () => open(items[current.item])), next);
   card.append(heading, steps, selector, actions);
-  root.replaceChildren(card);
+  root.textContent = '';
+  root.append(card);
   return items;
 }

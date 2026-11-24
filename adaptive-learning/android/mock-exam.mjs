@@ -83,7 +83,7 @@ export function mountMockExam({ menu, level, native, button }) {
     const answers = new Map();
     let index = 0;
     function showQuestion() {
-      output.replaceChildren();
+      output.textContent = '';
       const q = paper.questions[index];
       renderText(paper.title, 'h3');
       renderText(categories[q.category] + ' · ' + (index + 1) + ' / ' + paper.questions.length);
@@ -103,7 +103,7 @@ export function mountMockExam({ menu, level, native, button }) {
     function showResult() {
       const result = scoreMockPaper(paper, answers);
       const saved = native.recordMockResult(JSON.stringify(result));
-      output.replaceChildren();
+      output.textContent = '';
       renderText('পরীক্ষার ফল', 'h3');
       for (const [key, value] of Object.entries(result.sections)) {
         renderText(categories[key] + ' · ' + value.correct + '/' + value.total +
@@ -111,7 +111,7 @@ export function mountMockExam({ menu, level, native, button }) {
       }
       if (!saved) renderText('এই ফলটি সেভ করা যায়নি।');
       output.append(button('উত্তর ও ব্যাখ্যা দেখুন', () => {
-        output.replaceChildren();
+        output.textContent = '';
         for (const [position, question] of paper.questions.entries()) {
           renderText(String(position + 1), 'h4');
           renderFormatted(question.passage);
@@ -132,32 +132,32 @@ export function mountMockExam({ menu, level, native, button }) {
   const open = button('Mock Test', async () => {
     const version = ++request;
     panel.hidden = false;
-    output.replaceChildren();
+    output.textContent = '';
     renderText('পরীক্ষার তালিকা আনা হচ্ছে…');
     try {
       const catalog = await load('catalog');
       if (version !== request) return;
       if (!Array.isArray(catalog)) throw new Error('Invalid catalog');
-      output.replaceChildren();
+      output.textContent = '';
       renderText(level + ' লিখিত মক পরীক্ষা', 'h3');
       for (const entry of catalog.filter(row => row && inScope(level, row.id) && Number.isInteger(row.count))) {
         output.append(button(entry.title + ' · ' + entry.count + ' প্রশ্ন', async () => {
           const selection = ++request;
-          output.replaceChildren();
+          output.textContent = '';
           renderText('পরীক্ষা আনা হচ্ছে…');
           try {
             const paper = validateMockPaper(await load(entry.id), level, entry);
             if (selection === request) start(paper);
           } catch {
-            if (selection === request) { output.replaceChildren(); renderText('পরীক্ষাটি এখন খোলা যাচ্ছে না।'); }
+            if (selection === request) { output.textContent = ''; renderText('পরীক্ষাটি এখন খোলা যাচ্ছে না।'); }
           }
         }));
       }
     } catch {
-      if (version === request) { output.replaceChildren(); renderText('পরীক্ষার তালিকা এখন পাওয়া যাচ্ছে না।'); }
+      if (version === request) { output.textContent = ''; renderText('পরীক্ষার তালিকা এখন পাওয়া যাচ্ছে না।'); }
     }
   });
-  panel.append(button('পরীক্ষা বন্ধ করুন', () => { request++; panel.hidden = true; output.replaceChildren(); }), output);
+  panel.append(button('পরীক্ষা বন্ধ করুন', () => { request++; panel.hidden = true; output.textContent = ''; }), output);
   menu.after(panel);
   menu.append(open);
 }
