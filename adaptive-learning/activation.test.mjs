@@ -62,3 +62,26 @@ test('pacing survives cache recreation and interrupted sessions via replay', () 
   assert.ok(state.output >= -0.4);
   assert.deepEqual(createProfileCache()([...events].reverse()).pacing, state);
 });
+
+test('persistent checkpoints restore across restart, accept appended history and reject stale or corrupted payloads', () => {
+  const original = attempts(80);
+  let raw = '';
+  let writes = 0;
+  const storage = { read: () => raw, write: value => { raw = value; writes++; } };
+  const first = createProfileCache(storage)(original);
+  assert.equal(writes, 1);
+  assert.ok(raw.includes('"version":1'));
+  const restarted = createProfileCache(storage)(attempts(84));
+  const expected = createProfileCache()(attempts(84));
+  assert.deepEqual(restarted.cards, expected.cards);
+  assert.deepEqual(restarted.skillProfile(item), expected.skillProfile(item));
+  assert.deepEqual(restarted.pacing, expected.pacing);
+  assert.equal(first.sessions, 16);
+
+  const stale = attempts(84).slice(1);
+  assert.deepEqual(createProfileCache(storage)(stale).cards, createProfileCache()(stale).cards);
+  raw = raw.replace('"stability":', '"invalidStability":');
+  assert.deepEqual(createProfileCache(storage)(original).cards, first.cards);
+  storage.read = () => { throw new Error('damaged SQLite record'); };
+  assert.deepEqual(createProfileCache(storage)(original).pacing, first.pacing);
+});

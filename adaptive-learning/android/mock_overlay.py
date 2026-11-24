@@ -33,6 +33,28 @@ def apply_mock_overlay(root: Path):
     }
 
 ''' + anchor))
+    source = bridge.read_text()
+    if "public final String readAdaptiveSnapshot()" not in source:
+        bridge.write_text(source.replace(anchor, '''    @JavascriptInterface
+    public final String readAdaptiveSnapshot() {
+        if (!adaptiveAllowed()) return "";
+        return AdaptiveHistory.get(this.this$0).readSnapshot(adaptiveOwner,
+            adaptiveLevel + (this.$requestPreview ? ":preview:" : ":full:"));
+    }
+
+    @JavascriptInterface
+    public final void writeAdaptiveSnapshot(String snapshot) {
+        if (!adaptiveAllowed() || snapshot == null || snapshot.length() > 1048576) return;
+        MainActivity.access$getSyncWorker$p(this.this$0).execute(new Runnable() {
+            @Override public void run() {
+                MainActivity$openReader$4 reader = MainActivity$openReader$4.this;
+                if (reader.adaptiveAllowed()) AdaptiveHistory.get(reader.this$0).writeSnapshot(reader.adaptiveOwner,
+                    reader.adaptiveLevel + (reader.$requestPreview ? ":preview:" : ":full:"), snapshot);
+            }
+        });
+    }
+
+''' + anchor))
     interceptor = java / "MainActivity$openReader$5.java"
     source = interceptor.read_text()
     anchor = '        if (SourceCompat.startsWith(path2, "kanji/",'

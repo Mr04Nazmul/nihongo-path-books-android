@@ -19,7 +19,7 @@ final class AdaptiveHistory extends SQLiteOpenHelper {
     }
 
     private AdaptiveHistory(Context context) {
-        super(context, "adaptive-learning.db", null, 4);
+        super(context, "adaptive-learning.db", null, 5);
     }
 
     @Override public void onCreate(SQLiteDatabase db) {
@@ -29,6 +29,7 @@ final class AdaptiveHistory extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX attempts_pending ON attempts(owner,pending,at,id)");
         createWritingTable(db);
         createMockTable(db);
+        createSnapshotTable(db);
     }
 
     @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
@@ -39,10 +40,40 @@ final class AdaptiveHistory extends SQLiteOpenHelper {
         }
         if (oldVersion < 3) createWritingTable(db);
         if (oldVersion < 4) createMockTable(db);
+        if (oldVersion < 5) createSnapshotTable(db);
     }
 
     private void createWritingTable(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE writing_assessments (owner TEXT NOT NULL, glyph TEXT NOT NULL, level TEXT NOT NULL, at INTEGER NOT NULL, summary TEXT NOT NULL, PRIMARY KEY(owner,level,glyph))");
+    }
+
+    private void createSnapshotTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE model_snapshots (owner TEXT NOT NULL, scope TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(owner,scope))");
+    }
+
+    String readSnapshot(String owner, String scope) {
+        try (Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT data FROM model_snapshots WHERE owner=? AND scope=?",
+                new String[] {owner, scope})) {
+            return cursor.moveToFirst() ? cursor.getString(0) : "";
+        } catch (android.database.SQLException unavailable) {
+            return "";
+        }
+    }
+
+    void writeSnapshot(String owner, String scope, String raw) {
+        if (raw == null || raw.length() > 1048576 ||
+            raw.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 1048576) return;
+        try {
+            ContentValues values = new ContentValues();
+            values.put("owner", owner);
+            values.put("scope", scope);
+            values.put("data", raw);
+            getWritableDatabase().insertWithOnConflict("model_snapshots", null, values,
+                SQLiteDatabase.CONFLICT_REPLACE);
+        } catch (android.database.SQLException unavailable) {
+            // Attempts remain available for deterministic replay.
+        }
     }
 
     private void createMockTable(SQLiteDatabase db) {
@@ -236,6 +267,7 @@ final class AdaptiveHistory extends SQLiteOpenHelper {
             db.delete("sync_cursors", "owner=?", new String[] {owner});
             db.delete("writing_assessments", "owner=?", new String[] {owner});
             db.delete("mock_results", "owner=?", new String[] {owner});
+            db.delete("model_snapshots", "owner=?", new String[] {owner});
             db.setTransactionSuccessful();
         } finally {
             db.endTransaction();

@@ -112,7 +112,11 @@ export function mount(data, level, preview, word, meaning) {
   document.querySelector('#tabs').insertAdjacentElement('afterend', panel);
   let used = new Set();
   let remaining = 300;
-  const profileFor = createProfileCache();
+  const storage = native.readAdaptiveSnapshot && native.writeAdaptiveSnapshot ? {
+    read: () => native.readAdaptiveSnapshot(),
+    write: raw => window.setTimeout(() => native.writeAdaptiveSnapshot(raw), 0),
+  } : undefined;
+  const profileFor = createProfileCache(storage);
 
   function history() {
     const value = native.adaptiveHistory();

@@ -9,17 +9,18 @@ function skillScope(skill) {
   return match ? match[1] : '';
 }
 
-function createProfileAccumulator(protectColdStart) {
-  const cards = new Map();
-  const skills = new Map();
-  const responses = new Map();
-  const abilities = new Map();
-  const seen = new Set();
-  const counts = new Map();
-  let sessions = 0;
-  let answers = 0;
-  let lastAnswer = -Infinity;
-  let pacing = initialReaderPacing();
+function createProfileAccumulator(protectColdStart, restored = {}, prefix = []) {
+  const cards = new Map((restored.cards ?? []).map(([key, card]) =>
+    [key, { ...card, due: new Date(card.due), last_review: new Date(card.last_review) }]));
+  const skills = new Map(restored.skills);
+  const responses = new Map(restored.responses);
+  const abilities = new Map(restored.abilities);
+  const seen = new Set(prefix.map(event => event.id));
+  const counts = new Map(restored.counts);
+  let sessions = restored.sessions ?? 0;
+  let answers = restored.answers ?? 0;
+  let lastAnswer = prefix[prefix.length - 1]?.at ?? -Infinity;
+  let pacing = restored.pacing ?? initialReaderPacing();
   function append(event) {
     if (seen.has(event.id)) return;
     seen.add(event.id);
@@ -63,7 +64,13 @@ function createProfileAccumulator(protectColdStart) {
     return { cards, skills: protectColdStart && !readiness.mastery ? new Map() : skills,
       skillProfile, readiness, sessions, pacing };
   }
-  return { append, current };
+  function checkpoint() {
+    return {
+      cards: [...cards], skills: [...skills], responses: [...responses], abilities: [...abilities],
+      counts: [...counts], sessions, answers, pacing,
+    };
+  }
+  return { append, current, checkpoint };
 }
 
 function chronological(a, b) {
@@ -76,14 +83,66 @@ export function buildProfile(events) {
   return accumulator.current();
 }
 
+const snapshotVersion = 1;
+const snapshotLimit = 1024 * 1024;
+
+// These immutable event identities are assigned by the account-scoped SQLite log.
+// A backfill changes the prefix fingerprint, so the model replays safely.
+function fingerprint(events, length = events.length) {
+  let hash = 2166136261;
+  for (let i = 0; i < length; i++) {
+    const identity = events[i].id + ':' + events[i].at;
+    for (let j = 0; j < identity.length; j++) hash = Math.imul(hash ^ identity.charCodeAt(j), 16777619);
+  }
+  return hash >>> 0;
+}
+
+function readSnapshot(storage, ordered) {
+  const raw = storage?.read();
+  if (!raw || raw.length > snapshotLimit) return null;
+  const { version, length, digest, state } = JSON.parse(raw);
+  if (version !== snapshotVersion || !Number.isInteger(length) || length < 1 ||
+      length > ordered.length || fingerprint(ordered, length) !== digest) return null;
+  const validEntries = (entries, value) => Array.isArray(entries) &&
+    entries.every(entry => Array.isArray(entry) && entry.length === 2 &&
+      typeof entry[0] === 'string' && value(entry[1]));
+  const probability = p => Number.isFinite(p) && p >= 0 && p <= 1;
+  if (!state || !Number.isInteger(state.answers) || state.answers < 1 || state.answers > length ||
+      !Number.isInteger(state.sessions) || state.sessions < 1 || state.sessions > state.answers ||
+      !Object.keys(initialReaderPacing()).every(key => Number.isFinite(state.pacing?.[key])) ||
+      !validEntries(state.cards, card => card && Number.isFinite(Date.parse(card.due)) &&
+        Number.isFinite(Date.parse(card.last_review)) &&
+        ['stability', 'difficulty', 'reps', 'state'].every(key => Number.isFinite(card[key]))) ||
+      !validEntries(state.skills, skill => skill && probability(skill.mastery) &&
+        skill.belief?.length === 4 && skill.belief.every(probability)) ||
+      !validEntries(state.responses, rows => Array.isArray(rows) && rows.length <= 200 && rows.every(validAttempt)) ||
+      !validEntries(state.abilities, ability => Number.isFinite(ability) && Math.abs(ability) <= 4) ||
+      !validEntries(state.counts, count => Number.isInteger(count) && count > 0 && count <= length)) return null;
+  return { length, state };
+}
+
 // The reader owns one cache per account-bound reader. A sync backfill,
 // truncation or reordered history forces a full deterministic replay.
-export function createProfileCache() {
+export function createProfileCache(storage) {
   let previous = [];
   let accumulator = createProfileAccumulator(true);
   let cached;
+  let attemptedRestore = false;
   return events => {
     const ordered = events.filter(validAttempt).sort(chronological);
+    if (!attemptedRestore) {
+      attemptedRestore = true;
+      try {
+        const saved = readSnapshot(storage, ordered);
+        if (saved) {
+          const prefix = ordered.slice(0, saved.length);
+          accumulator = createProfileAccumulator(true, saved.state, prefix);
+          previous = prefix;
+        }
+      } catch (_) {
+        // Ignore a damaged checkpoint. Attempts remain the source of truth.
+      }
+    }
     const prefix = previous.length <= ordered.length &&
       previous.every((event, i) => event.id === ordered[i].id && event.at === ordered[i].at);
     if (!prefix) accumulator = createProfileAccumulator(true);
@@ -91,6 +150,15 @@ export function createProfileCache() {
     for (let i = prefix ? previous.length : 0; i < ordered.length; i++) accumulator.append(ordered[i]);
     previous = ordered;
     cached = accumulator.current();
+    if (storage && ordered.length && (!prefix || ordered.length % 20 === 0)) {
+      try {
+        const raw = JSON.stringify({ version: snapshotVersion, length: ordered.length,
+          digest: fingerprint(ordered), state: accumulator.checkpoint() });
+        if (raw.length <= snapshotLimit) storage.write(raw);
+      } catch (_) {
+        // Full replay remains available when the checkpoint cannot be stored.
+      }
+    }
     return cached;
   };
 }
