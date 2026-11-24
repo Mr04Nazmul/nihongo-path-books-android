@@ -8,6 +8,7 @@ by the app owner. Apply to a clean copy, using Node 24 and Python 3.
 npm ci
 npm test
 npx --yes esbuild@0.28.2 android/reader.mjs --bundle --format=iife --target=chrome80 --minify --legal-comments=eof --outfile=android/adaptive-reader.js
+npx --yes esbuild@0.28.2 android/reminder-worker.mjs --bundle --format=iife --target=chrome80 --minify --legal-comments=eof --outfile=android/adaptive-reminder-worker.js
 python3 android/apply-overlay.py /absolute/path/to/android-source
 ```
 
