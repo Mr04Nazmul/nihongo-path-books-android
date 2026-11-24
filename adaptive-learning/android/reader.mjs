@@ -175,8 +175,9 @@ export function mount(data, level, preview, word, meaning, sakura) {
         }
         return variants;
       });
-      chosen = (selectQuestion(eligible, profile.skills, { offset: pacing.output, radius: 0.2 }, 0.05) ||
-        selectQuestion(eligible.filter(question => !question.reverse), profile.skills))?.question;
+      const questionProfiles = new Map(eligible.map(question => [question.skill, profile.skillProfile(question.skill)]));
+      chosen = (selectQuestion(eligible, questionProfiles, { offset: pacing.output, radius: 0.2 }, 0.05) ||
+        selectQuestion(eligible.filter(question => !question.reverse), questionProfiles))?.question;
     }
     if (!chosen) { show(mode === 'review' ? 'এখন কোনো রিভিউ বাকি নেই।' : 'এই সেশনে আর কোনো পাঠ বাকি নেই।'); return; }
     const group = groups.get(chosen.kind);
@@ -221,15 +222,20 @@ export function mount(data, level, preview, word, meaning, sakura) {
         if (future.length) show('পরের রিভিউ · ' + format.format(Math.min(...future)));
         const mastery = new Map([...state.skills].map(([id, skill]) => [id, skill.mastery]));
         const available = new Set(items.map(row => row.id));
-        const weak = items.find(row => row.kind !== 'kanji' && mastery.has(row.id) && mastery.get(row.id) < 0.55);
-        if (weak) {
+        const weakItems = items.filter(row => row.kind !== 'kanji' && mastery.has(row.id) && mastery.get(row.id) < 0.55)
+          .sort((a, b) => mastery.get(a.id) - mastery.get(b.id));
+        for (const weak of weakItems) {
           const suggestion = graph.weakPrerequisites(weak.id, mastery, available, 0.55)[0];
-          if (suggestion) show('সহায়ক পাঠ · ' + items.find(row => row.id === suggestion).prompt);
+          if (suggestion) {
+            show('সহায়ক পাঠ · ' + items.find(row => row.id === suggestion).prompt);
+            break;
+          }
           const earlier = earlierLevelLesson(level, weak.id);
-          if (earlier && native.selectStudyLevel) output.appendChild(button(
-            'সহায়ক পাঠ · ' + earlier.level + ' ' + earlier.label,
-            () => native.selectStudyLevel(earlier.level, earlier.section)));
-
+          if (earlier && native.selectStudyLevel) {
+            output.appendChild(button('সহায়ক পাঠ · ' + earlier.level + ' ' + earlier.label,
+              () => native.selectStudyLevel(earlier.level, earlier.section)));
+            break;
+          }
         }
       } catch (error) { show(error.message); }
     }),

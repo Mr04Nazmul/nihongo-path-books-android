@@ -2,10 +2,16 @@ import { defaultPrior, observeSkill, emissions, informationGain, validateAbility
 import { Rating, retentionAt, reviewCard } from './memory.mjs';
 import { optimizePlan, taskScore } from './planning.mjs';
 
+function skillScope(skill) {
+  const match = /^(N[1-5]:(?:preview|full)):/.exec(skill);
+  return match ? match[1] : '';
+}
+
 export function buildProfile(events) {
   const cards = new Map();
   const skills = new Map();
   const responses = new Map();
+  const abilities = new Map();
   const seen = new Set();
   const ordered = [...events].sort((a, b) => a.at - b.at || a.id.localeCompare(b.id));
   for (const event of ordered) {
@@ -15,18 +21,27 @@ export function buildProfile(events) {
       cards.set(event.item, reviewCard(cards.get(event.item), event.at, event.rating));
     }
     if (typeof event.correct === 'boolean') {
-      const previous = skills.get(event.skill) ?? { belief: defaultPrior, ability: 0 };
-      const likelihood = emissions(previous.ability, event.difficulty, event.guess, event.slip);
-      const updated = observeSkill(previous.belief, event.correct, likelihood);
-      const history = responses.get(event.skill) ?? [];
+      const scope = skillScope(event.skill);
+      const previous = skills.get(event.skill) ?? { belief: defaultPrior };
+      const ability = abilities.get(scope) ?? 0;
+      const likelihood = emissions(ability, event.difficulty, event.guess, event.slip);
+      skills.set(event.skill, observeSkill(previous.belief, event.correct, likelihood));
+      const history = responses.get(scope) ?? [];
       history.push(event);
-      responses.set(event.skill, history);
-      // Fit on a bounded history after each block of scored opportunities.
-      const ability = history.length % 20 === 0 ? validateAbility(history.slice(-200)).ability : previous.ability;
-      skills.set(event.skill, { ...updated, ability });
+      responses.set(scope, history);
+      // Estimate learner ability across questions in the same reader scope.
+      // Evaluate only after each block and preserve the chronological holdout.
+      if (history.length % 20 === 0) abilities.set(scope, validateAbility(history.slice(-200)).ability);
     }
   }
-  return { cards, skills };
+  function skillProfile(skill) {
+    return {
+      ...(skills.get(skill) ?? { belief: defaultPrior, mastery: defaultPrior[3] }),
+      ability: abilities.get(skillScope(skill)) ?? 0,
+    };
+  }
+  for (const key of skills.keys()) skills.set(key, skillProfile(key));
+  return { cards, skills, skillProfile };
 }
 
 export function dailyStudyPlan(tasks, profile, graph, options) {
@@ -36,7 +51,7 @@ export function dailyStudyPlan(tasks, profile, graph, options) {
   const candidates = [];
   for (const task of tasks) {
     if (!task.accessible || graph.weakPrerequisites(task.skill, mastery, access, masteryThreshold).length) continue;
-    const skill = profile.skills.get(task.skill) ?? { belief: defaultPrior, ability: 0, mastery: defaultPrior[3] };
+    const skill = profile.skillProfile(task.skill);
     const likelihood = emissions(skill.ability, task.difficulty, task.guess, task.slip);
     const correct = skill.belief.reduce((total, p, i) => total + p * likelihood[i], 0);
     const afterCorrect = observeSkill(skill.belief, true, likelihood).mastery;

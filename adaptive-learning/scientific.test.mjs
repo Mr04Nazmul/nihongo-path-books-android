@@ -42,3 +42,16 @@ test('BKT closed-form update equals the shared HMM marginal when states are lump
   assert.ok(Math.abs(prediction - (0.9 * 0.2 / 0.38 + (1 - 0.9 * 0.2 / 0.38) * 0.1)) < 1e-12);
   assert.ok(Math.abs(observeSkill(prior, true, [0.25,0.25,0.25,0.9], transition).mastery - prediction) < 1e-12);
 });
+
+test('learner ability uses different questions within each level and access scope', async () => {
+  const { buildProfile } = await import('./session.mjs');
+  const events = Array.from({length: 80}, (_, i) => ({
+    id: String(i), skill: 'N5:preview:vocab:' + i, at: i,
+    correct: i % 5 !== 0, difficulty: 0, guess: 0.25, slip: 0.05,
+  }));
+  const profile = buildProfile(events);
+  assert.ok(profile.skillProfile('N5:preview:vocab:new').ability > 0);
+  assert.equal(profile.skillProfile('N5:full:vocab:new').ability, 0);
+  assert.equal(profile.skillProfile('N4:preview:vocab:new').ability, 0);
+  assert.equal(buildProfile(events.slice(0, 59)).skillProfile('N5:preview:vocab:new').ability, 0);
+});
