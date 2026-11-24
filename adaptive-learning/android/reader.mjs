@@ -1,12 +1,19 @@
 import { buildProfile, dailyStudyPlan } from '../session.mjs';
 import { selectQuestion } from '../models.mjs';
 import { PrerequisiteGraph } from '../graph.mjs';
-import { updateDifficulty } from '../pacing.mjs';
+import { chooseReminder, fitStudySessions, updateDifficulty } from '../pacing.mjs';
 import { compareWriting } from '../strokes.mjs';
 import { sampleLearningPriority } from '../exploration.mjs';
 
 const settings = { target: 0.75, kp: 0.7, ki: 0.002, kd: 0.1, smoothing: 0.2, limit: 0.4, maxStep: 0.05 };
 const weights = { retention: 2, mastery: 2, exam: 1, time: 0.06, load: 0.04 };
+const grammarPrerequisites = {
+  N3: [['own-n3-grammar-0001', 'own-n3-grammar-0002']],
+  N4: [
+    ['own-n4-grammar-0001', 'own-n4-grammar-0002'],
+    ['own-n4-grammar-0002', 'own-n4-grammar-0003'],
+  ],
+};
 const format = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' });
 
 function button(text, action) {
@@ -52,24 +59,60 @@ function lessons(data, level, preview, word, meaning) {
   return rows.filter(row => ambiguous.get(row.kind + ':' + row.prompt).size === 1);
 }
 
+function trainReminder(native) {
+  if (!native.adaptiveStudySessions) return;
+  try {
+    const now = Date.now();
+    const sessions = JSON.parse(native.adaptiveStudySessions());
+    if (!sessions.length) return;
+    const model = fitStudySessions(sessions, now - 90 * 86400000, now);
+    if (!model) { native.adaptiveReminder(0); return; }
+    const hourly = Array(24).fill(0);
+    for (const time of sessions) hourly[new Date(time).getHours()]++;
+    const highest = Math.max(...hourly);
+    const slots = [];
+    for (let day = 0; day <= 1; day++) {
+      for (let hour = 8; hour < 21; hour++) {
+        if (hourly[hour] < Math.max(2, highest / 2)) continue;
+        const candidate = new Date(now);
+        candidate.setDate(candidate.getDate() + day);
+        candidate.setHours(hour, 0, 0, 0);
+        slots.push({ at: candidate.getTime(), quiet: false });
+      }
+    }
+    const selected = chooseReminder(model, slots, null, { permitted: true, alreadyScheduled: false, asOf: now + 3600000 });
+    native.adaptiveReminder(selected || 0);
+  } catch (_) {
+    // An unavailable profile leaves the existing daily reminder in charge.
+  }
+}
+
 function mount(data, level, preview, word, meaning) {
   const native = window.StudyNative;
   if (!native || !native.adaptiveHistory) return;
   const rows = lessons(data, level, preview, word, meaning);
   const groups = new Map();
   for (const row of rows) {
-    if (!groups.has(row.kind)) groups.set(row.kind, new Set());
-    groups.get(row.kind).add(row.answer);
+    if (!groups.has(row.kind)) groups.set(row.kind, { meanings: new Set(), words: new Set(), byMeaning: new Map() });
+    const group = groups.get(row.kind);
+    group.meanings.add(row.answer);
+    group.words.add(row.prompt);
+    if (!group.byMeaning.has(row.answer)) group.byMeaning.set(row.answer, new Set());
+    group.byMeaning.get(row.answer).add(row.prompt);
   }
-  const items = rows.filter(row => groups.get(row.kind).size >= 4);
+  const items = rows.filter(row => groups.get(row.kind).meanings.size >= 4);
   if (!items.length) return;
   const kanji = new Map(items.filter(row => row.kind === 'kanji').map(row => [row.prompt, row.id]));
   // Character containment is an observed relationship. It supplies a
   // recommendation in progress, while hard prerequisites await curriculum review.
   const related = items.flatMap(row => row.kind !== 'vocab' ? [] :
     [...new Set(Array.from(row.prompt).map(char => kanji.get(char)).filter(Boolean))].map(id => [id, row.id]));
-  const graph = new PrerequisiteGraph(items.map(row => row.id), related);
-  const noHardPrerequisites = new PrerequisiteGraph(items.map(row => row.id), []);
+  const prefix = level + ':' + (preview ? 'preview:' : 'full:') + 'grammar:';
+  const ids = new Set(items.map(row => row.id));
+  const grammarEdges = (grammarPrerequisites[level] || []).map(edge => edge.map(id => prefix + id))
+    .filter(edge => edge.every(id => ids.has(id)));
+  const graph = new PrerequisiteGraph([...ids], [...related, ...grammarEdges]);
+  const prerequisites = new PrerequisiteGraph([...ids], grammarEdges);
   const panel = document.createElement('section');
   panel.className = 'adaptive-study';
   panel.setAttribute('aria-live', 'polite');
@@ -119,7 +162,7 @@ function mount(data, level, preview, word, meaning) {
         const last = evidence.get(row.id);
         return last ? { ...row, seconds: Math.max(5, Math.ceil(last.seconds)) } : row;
       });
-      const plan = dailyStudyPlan(estimated, profile, noHardPrerequisites, {
+      const plan = dailyStudyPlan(estimated, profile, prerequisites, {
         at, seconds: remaining, maxLoad: 16, weights, masteryThreshold: 0.55,
       });
       const spacedEvidence = new Map();
@@ -133,28 +176,37 @@ function mount(data, level, preview, word, meaning) {
         }
         lastByItem.set(event.item, event);
       }
-      const eligible = plan.map(row => ({
-        ...row, priority: spacedEvidence.has(row.id) ? sampleLearningPriority(spacedEvidence.get(row.id)) : 0.5,
-      }));
-      chosen = (selectQuestion(eligible, profile.skills, { offset: pacing.output, radius: 0.8 }) ||
-        selectQuestion(eligible, profile.skills))?.question;
+      const eligible = plan.flatMap(row => {
+        const priority = spacedEvidence.has(row.id) ? sampleLearningPriority(spacedEvidence.get(row.id)) : 0.5;
+        const forward = { ...row, priority };
+        const group = groups.get(row.kind);
+        if (row.kind === 'grammar' || group.words.size < 4 || group.byMeaning.get(row.answer).size !== 1) return [forward];
+        // Two explicit cold-start difficulty priors for the exercise directions.
+        return [forward, { ...forward, reverse: true, difficulty: 0.35 }];
+      });
+      chosen = (selectQuestion(eligible, profile.skills, { offset: pacing.output, radius: 0.2 }) ||
+        selectQuestion(eligible.filter(question => !question.reverse), profile.skills))?.question;
     }
     if (!chosen) { show(mode === 'review' ? 'এখন কোনো রিভিউ বাকি নেই।' : 'এই সেশনে আর কোনো পাঠ বাকি নেই।'); return; }
-    show(chosen.prompt);
-    const distractors = shuffle([...groups.get(chosen.kind)].filter(value => value !== chosen.answer)).slice(0, 3);
+    const group = groups.get(chosen.kind);
+    const correctAnswer = chosen.reverse ? chosen.prompt : chosen.answer;
+    const possible = chosen.reverse ? group.words : group.meanings;
+    show(chosen.reverse ? chosen.answer : chosen.prompt);
+    const distractors = shuffle([...possible].filter(value => value !== correctAnswer)).slice(0, 3);
     const started = performance.now();
-    const options = shuffle([chosen.answer, ...distractors]).map(value => button(value, () => {
+    const options = shuffle([correctAnswer, ...distractors]).map(value => button(value, () => {
       for (const option of options) option.disabled = true;
-      const correct = value === chosen.answer;
+      const correct = value === correctAnswer;
       const seconds = Math.max(1, Math.round((performance.now() - started) / 1000));
-      if (!native.recordAdaptiveAnswer(JSON.stringify({ item: chosen.id, correct, seconds }))) {
+      if (!native.recordAdaptiveAnswer(JSON.stringify({ item: chosen.id, correct, seconds, reverse: !!chosen.reverse }))) {
         show('এই উত্তরটি সেভ করা যায়নি।');
         return;
       }
+      if (!used.size) window.setTimeout(() => trainReminder(native), 0);
       used.add(chosen.id);
       remaining -= seconds;
       pacing = updateDifficulty(pacing, correct, Math.min(120, seconds), settings);
-      show(correct ? 'সঠিক' : 'সঠিক উত্তর · ' + chosen.answer);
+      show(correct ? 'সঠিক' : 'সঠিক উত্তর · ' + correctAnswer);
       output.appendChild(button('পরেরটি', () => next(mode)));
     }));
     output.append(...options);

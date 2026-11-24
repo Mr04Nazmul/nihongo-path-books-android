@@ -106,3 +106,90 @@ after = after.replace(
 activity.write_text(before + sep + after)
 replace(root / 'app' / 'build.gradle', "versionCode 33; versionName '1.19.3'",
         "versionCode 34; versionName '1.20.0-adaptive-preview'")
+
+shutil.copy2(overlay / 'AdaptiveSync.java', java / 'AdaptiveSync.java')
+replace(root / 'app' / 'build.gradle', ' buildFeatures { buildConfig true }', ''' buildFeatures { buildConfig true }
+ defaultConfig { buildConfigField 'boolean', 'ADAPTIVE_SYNC', (System.getenv('BOOKS_ADAPTIVE_SYNC') == 'true' ? 'true' : 'false') }''')
+books_api = java / 'BooksApi.java'
+replace(books_api,
+        '    public final JSONObject request(String path, String method, JSONObject data) {',
+        '''    public final JSONObject request(String path, String method, JSONObject data) {
+        return requestWithCredential(path, method, data, String.valueOf(this.token.invoke()));
+    }
+
+    final JSONObject requestWithCredential(String path, String method, JSONObject data, String credential) {''')
+replace(books_api,
+        '.url(StringsKt.trimEnd(BuildConfig.API_BASE, \'/\') + path).header("Authorization", "Bearer " + ((Object) this.token.invoke()));',
+        '.url(StringsKt.trimEnd(BuildConfig.API_BASE, \'/\') + path).header("Authorization", "Bearer " + credential);')
+replace(bridge,
+        '''        return adaptiveAllowed() && AdaptiveHistory.get(this.this$0)
+            .append(adaptiveOwner, adaptiveLevel, this.$requestPreview, event);''',
+        '''        if (!adaptiveAllowed() || !AdaptiveHistory.get(this.this$0)
+            .append(adaptiveOwner, adaptiveLevel, this.$requestPreview, event)) return false;
+        AdaptiveSync.run(this.this$0, adaptiveOwner, adaptiveCredential);
+        return true;''')
+replace(activity, '        this.data = snapshot;', '''        this.data = snapshot;
+        JSONObject adaptiveUser = snapshot.optJSONObject("user");
+        if (adaptiveUser != null && this.vault != null) {
+            AdaptiveSync.run(this, adaptiveUser.optString("id"), this.vault.read());
+        }''')
+backend = root / 'backend-snapshot'
+shutil.copy2(overlay / 'adaptive-sync-route.ts', backend / 'adaptive-sync-route.ts')
+replace(backend / 'index.ts', "import {Fault} from './errors.ts';",
+        "import {Fault} from './errors.ts';\nimport {validateAdaptiveBatch} from './adaptive-sync-route.ts';")
+replace(backend / 'index.ts', "  const me=await rpc('authenticate',{tokenHash});",
+        '''  const me=await rpc('authenticate',{tokenHash});
+  if(route==='/adaptive-sync'&&req.method==='POST'){
+   const batch=validateAdaptiveBatch(await body(req));
+   if(!batch)throw new Fault(400,'Invalid adaptive review batch');
+   const response=await fetch(project+'/rest/v1/rpc/nihongo_adaptive_sync',{
+    method:'POST',headers:{apikey:service,Authorization:'Bearer '+service,'Content-Type':'application/json'},
+    body:JSON.stringify({token_hash:tokenHash,after_cursor:batch.after,events:batch.events}),
+    signal:AbortSignal.timeout(15000),
+   });
+   if(!response.ok)throw new Fault(503,'Adaptive sync is unavailable');
+   const synced=await response.json();
+   if(synced.error)throw new Fault(synced.status||400,synced.error);
+   return json(synced);
+  }''')
+
+replace(bridge, '    @JavascriptInterface\n    public final String adaptiveHistory()', '''    @JavascriptInterface
+    public final String adaptiveStudySessions() {
+        if (!adaptiveAllowed() || !DailyReminder.enabled(this.this$0)
+                || !DailyReminder.allowed(this.this$0)) return "[]";
+        return AdaptiveHistory.get(this.this$0).sessionStarts(adaptiveOwner, System.currentTimeMillis());
+    }
+
+    @JavascriptInterface
+    public final void adaptiveReminder(long when) {
+        if (adaptiveAllowed()) DailyReminder.setAdaptiveTime(this.this$0, when);
+    }
+
+    @JavascriptInterface
+    public final String adaptiveHistory()''')
+reminder = java / 'DailyReminder.java'
+replace(reminder, ' public static void schedule(Context c){if(!enabled(c))return;AlarmManager am=(AlarmManager)c.getSystemService(Context.ALARM_SERVICE);am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,nextTime(System.currentTimeMillis(),TimeZone.getDefault()),pending(c));}',
+        ''' static boolean quiet(long time) {
+  Calendar local=Calendar.getInstance();local.setTimeInMillis(time);
+  int hour=local.get(Calendar.HOUR_OF_DAY);return hour<8||hour>=21;
+ }
+ public static void setAdaptiveTime(Context c,long when) {
+  if(!enabled(c)||!allowed(c))return;
+  long now=System.currentTimeMillis();
+  if(when>now&&when-now<=172800000L&&!quiet(when))prefs(c).edit().putLong("adaptive_time",when).apply();
+  else prefs(c).edit().remove("adaptive_time").apply();
+  schedule(c);
+ }
+ public static void schedule(Context c){
+  if(!enabled(c)||!allowed(c))return;
+  long now=System.currentTimeMillis();TimeZone zone=TimeZone.getDefault();
+  String last=prefs(c).getString("last_day","");
+  long next=nextTime(now,zone);
+  if(last.equals(dateKey(next,zone)))next=nextTime(next,zone);
+  long personal=prefs(c).getLong("adaptive_time",0);
+  if(personal>now&&!quiet(personal)&&!last.equals(dateKey(personal,zone)))next=personal;
+  AlarmManager am=(AlarmManager)c.getSystemService(Context.ALARM_SERVICE);
+  am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,next,pending(c));
+ }''')
+replace(reminder, 'if(!enabled(c)||!allowed(c))return;String today=dateKey',
+        'if(!enabled(c)||!allowed(c)||quiet(System.currentTimeMillis()))return;String today=dateKey')
