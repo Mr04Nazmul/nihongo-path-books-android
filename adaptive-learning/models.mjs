@@ -65,7 +65,7 @@ export function selectQuestion(questions, profiles, difficultyWindow) {
     if (difficultyWindow && Math.abs(question.difficulty - ability - difficultyWindow.offset) > difficultyWindow.radius) continue;
     const likelihood = emissions(ability, question.difficulty, question.guess, question.slip);
     const gain = informationGain(belief, likelihood);
-    if (!best || gain > best.gain || (gain === best.gain && question.id < best.question.id)) {
+    if (!best || gain > best.gain || (gain === best.gain && ((question.priority ?? 0) > (best.question.priority ?? 0) || ((question.priority ?? 0) === (best.question.priority ?? 0) && question.id < best.question.id)))) {
       best = { question, gain, likelihood };
     }
   }

@@ -1,1 +1,1 @@
-{"name":"nihongo-adaptive-learning","private":true,"type":"module","scripts":{"test":"node --test"},"dependencies":{"ts-fsrs":"6.0.1"}}
+{"name":"nihongo-adaptive-learning","private":true,"type":"module","scripts":{"test":"node --test"},"dependencies":{"ts-fsrs":"6.0.1"},"devDependencies":{"linkedom":"0.18.12"}}
