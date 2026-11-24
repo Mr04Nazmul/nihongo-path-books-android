@@ -1,3 +1,4 @@
+import { mockStudyPriority, mountMockExam } from './mock-exam.mjs';
 import "./reader-compat.mjs";
 import { createProfileCache, dailyStudyPlan } from '../session.mjs';
 import { selectQuestion } from '../models.mjs';
@@ -84,7 +85,7 @@ function trainReminder(native) {
   }
 }
 
-export function mount(data, level, preview, word, meaning, sakura) {
+export function mount(data, level, preview, word, meaning) {
   const native = window.StudyNative;
   if (!native || !native.adaptiveHistory) return;
   const rows = lessons(data, level, preview, word, meaning);
@@ -100,15 +101,6 @@ export function mount(data, level, preview, word, meaning, sakura) {
   const readings = new Set(rows.map(row => row.reading).filter(Boolean));
   const items = rows.filter(row => groups.get(row.kind).meanings.size >= 4)
     .map(row => ({ ...row, examAligned: !!row.reading && readings.size >= 4 }));
-  if (sakura?.level === level && Array.isArray(sakura.questions)) {
-    for (const row of sakura.questions) {
-      const prefix = level + ':' + (preview ? 'preview:' : 'full:');
-      const id = prefix + row.kind + ':sakura-' + row.id;
-      items.push({ ...row, id, item: id, skill: id, answer: row.choices[row.answer],
-        mock: true, guess: 0.25, slip: 0.05, difficulty: 0.2, accessible: true,
-        examAligned: true, seconds: row.passage ? 60 : 25, load: row.passage ? 2 : 1 });
-    }
-  }
   if (!items.length) return;
   const { support: graph, required: prerequisites } = curriculumGraphs(items, level, preview);
   const panel = document.createElement('section');
@@ -161,9 +153,11 @@ export function mount(data, level, preview, word, meaning, sakura) {
         const prior = evidence.get(event.item);
         if (!prior || prior.at < event.at) evidence.set(event.item, event);
       }
+      const examPriority = mockStudyPriority(native);
       const estimated = candidates.map(row => {
         const last = evidence.get(row.id);
-        return last ? { ...row, seconds: Math.max(5, Math.ceil(last.seconds)) } : row;
+        return { ...row, seconds: last ? Math.max(5, Math.ceil(last.seconds)) : row.seconds,
+          mockExamPriority: examPriority[row.kind] ?? 0 };
       });
       const mastery = new Map([...profile.skills].map(([id, state]) => [id, state.mastery]));
       const accessible = new Set(prerequisites.order);
@@ -252,19 +246,11 @@ export function mount(data, level, preview, word, meaning, sakura) {
       } catch (error) { show(error.message); }
     }),
   );
+  if (!preview) mountMockExam({ menu, level, native, button });
 }
 
-async function mountFromAssets(data, level, preview, word, meaning) {
-  let sakura;
-  if (level === 'N5') {
-    try {
-      const response = await fetch('sakura-adaptive.json');
-      if (response.ok) sakura = await response.json();
-    } catch (_) {
-      // Some source builds include only the Books curriculum.
-    }
-  }
-  mount(data, level, preview, word, meaning, sakura);
+function mountFromAssets(data, level, preview, word, meaning) {
+  mount(data, level, preview, word, meaning);
 }
 
 window.AdaptiveReader = { mount, mountFromAssets, compareWriting, assessWriting };

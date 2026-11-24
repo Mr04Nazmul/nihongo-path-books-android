@@ -216,3 +216,7 @@ replace(bridge, '    @JavascriptInterface\n    public final String adaptiveHisto
 
     @JavascriptInterface
     public final String adaptiveHistory()''')
+
+# Install the opt-in Sakura exam transport and account-bound result bridge.
+from mock_overlay import apply_mock_overlay
+apply_mock_overlay(root)

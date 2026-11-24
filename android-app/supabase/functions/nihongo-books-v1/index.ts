@@ -109,7 +109,7 @@ export async function handle(req:Request):Promise<Response>{
   }
   if(route.startsWith('/content/')&&req.method==='GET'){
    const premiumPath=decodeURIComponent(route.slice(9));
-   if(/^(?:data\/lessons-n[1-5]\.json|kanji\/n[1-5]\.json|strokes\/n[1-5]\/[0-9a-f]{5}\.json)$/.test(premiumPath)){
+   if(/^(?:mock\/n[1-5]\/(?:catalog|n[1-5]-practice-[0-9]{1,3})\.json|data\/lessons-n[1-5]\.json|kanji\/n[1-5]\.json|strokes\/n[1-5]\/[0-9a-f]{5}\.json)$/.test(premiumPath)){
     const premiumLevel=/n[1-5]/.exec(premiumPath)![0].toUpperCase();
     const entitlement=await rpc('allowed',{tokenHash,level:premiumLevel});if(entitlement.allowed!==true)throw new Fault(403,'Unlock this level in Reward Center');
     const read=await fetch(project+'/rest/v1/rpc/nihongo_premium_read',{method:'POST',headers:{apikey:service,Authorization:'Bearer '+service,'Content-Type':'application/json'},body:JSON.stringify({asset_path:premiumPath,token_hash:tokenHash}),signal:AbortSignal.timeout(15000)});

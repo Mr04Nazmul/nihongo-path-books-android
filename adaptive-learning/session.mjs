@@ -115,7 +115,8 @@ export function dailyStudyPlan(tasks, profile, graph, options) {
       ...task,
       retention,
       mastery: Math.max(0, correct * afterCorrect + (1 - correct) * afterIncorrect - skill.mastery),
-      exam: task.examAligned ? informationGain(skill.belief, likelihood) : 0,
+      exam: (task.examAligned ? informationGain(skill.belief, likelihood) : 0) +
+        (Number.isFinite(task.mockExamPriority) ? Math.max(0, Math.min(0.08, task.mockExamPriority)) : 0),
     });
   }
   // Bound the expensive frontier on lower-memory devices. Rank every

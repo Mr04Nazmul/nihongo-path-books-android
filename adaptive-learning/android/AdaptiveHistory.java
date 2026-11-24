@@ -19,7 +19,7 @@ final class AdaptiveHistory extends SQLiteOpenHelper {
     }
 
     private AdaptiveHistory(Context context) {
-        super(context, "adaptive-learning.db", null, 3);
+        super(context, "adaptive-learning.db", null, 4);
     }
 
     @Override public void onCreate(SQLiteDatabase db) {
@@ -28,6 +28,7 @@ final class AdaptiveHistory extends SQLiteOpenHelper {
         db.execSQL("CREATE TABLE sync_cursors (owner TEXT PRIMARY KEY, cursor TEXT NOT NULL)");
         db.execSQL("CREATE INDEX attempts_pending ON attempts(owner,pending,at,id)");
         createWritingTable(db);
+        createMockTable(db);
     }
 
     @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
@@ -37,10 +38,49 @@ final class AdaptiveHistory extends SQLiteOpenHelper {
             db.execSQL("CREATE INDEX attempts_pending ON attempts(owner,pending,at,id)");
         }
         if (oldVersion < 3) createWritingTable(db);
+        if (oldVersion < 4) createMockTable(db);
     }
 
     private void createWritingTable(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE writing_assessments (owner TEXT NOT NULL, glyph TEXT NOT NULL, level TEXT NOT NULL, at INTEGER NOT NULL, summary TEXT NOT NULL, PRIMARY KEY(owner,level,glyph))");
+    }
+
+    private void createMockTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE mock_results (id INTEGER PRIMARY KEY, owner TEXT NOT NULL, level TEXT NOT NULL, at INTEGER NOT NULL, result TEXT NOT NULL)");
+        db.execSQL("CREATE INDEX mock_results_owner_level ON mock_results(owner,level,id DESC)");
+    }
+
+    boolean recordMock(String owner, String level, String raw) {
+        if (raw == null || raw.length() > 1024) return false;
+        try {
+            JSONObject result = new JSONObject(raw);
+            if (!result.getString("paper").matches(level.toLowerCase(java.util.Locale.ROOT) + "-practice-[0-9]{1,3}")) return false;
+            JSONObject sections = result.getJSONObject("sections");
+            if (sections.length() != 3) return false;
+            for (String kind : new String[] {"vocabulary", "grammar", "reading"}) {
+                JSONObject score = sections.getJSONObject(kind);
+                int correct = score.getInt("correct"), answered = score.getInt("answered"), total = score.getInt("total");
+                if (correct < 0 || correct > answered || answered > total || total < 1 || total > 200) return false;
+            }
+            ContentValues values = new ContentValues();
+            values.put("owner", owner);
+            values.put("level", level);
+            values.put("at", System.currentTimeMillis());
+            values.put("result", result.toString());
+            return getWritableDatabase().insertOrThrow("mock_results", null, values) != -1;
+        } catch (JSONException | android.database.SQLException invalid) {
+            return false;
+        }
+    }
+
+    String recentMock(String owner, String level) {
+        try (Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT result FROM mock_results WHERE owner=? AND level=? ORDER BY id DESC LIMIT 1",
+                new String[] {owner, level})) {
+            return cursor.moveToFirst() ? cursor.getString(0) : "";
+        } catch (android.database.SQLException unavailable) {
+            return "";
+        }
     }
 
     void recordWriting(String owner, String level, String glyph, String summary) {
@@ -195,6 +235,7 @@ final class AdaptiveHistory extends SQLiteOpenHelper {
             db.delete("attempts", "owner=?", new String[] {owner});
             db.delete("sync_cursors", "owner=?", new String[] {owner});
             db.delete("writing_assessments", "owner=?", new String[] {owner});
+            db.delete("mock_results", "owner=?", new String[] {owner});
             db.setTransactionSuccessful();
         } finally {
             db.endTransaction();
