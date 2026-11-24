@@ -1,4 +1,5 @@
 from pathlib import Path
+import shutil
 
 
 def add_mock_edge(source: str) -> str:
@@ -54,3 +55,28 @@ def apply_mock_overlay(root: Path):
         interceptor.write_text(source)
     edge = root / "backend-snapshot/index.ts"
     edge.write_text(add_mock_edge(edge.read_text()))
+
+
+def apply_lesson_card(root: Path):
+    assets = root / "app/src/main/assets/reader"
+    html = assets / "study.html"
+    source = html.read_text()
+    if 'id="lessonCard"' not in source:
+        anchors = ('</head>', '<input id="search"', '  var rows = (data[kind] || []).filter(function (e) {')
+        if any(source.count(anchor) != 1 for anchor in anchors):
+            raise ValueError("Unexpected study reader markup")
+        source = source.replace('</head>', '<link rel="stylesheet" href="lesson-card.css"></head>')
+        source = source.replace('<input id="search"', '<div id="lessonCard"></div><input id="search"')
+        source = source.replace(anchors[2], """  var lessonRoot = document.querySelector('#lessonCard');
+  var lessonRows = data[kind] || [];
+  lessonRoot.hidden = !!(savedOnly || query);
+  if (!lessonRoot.hidden && window.AdaptiveReader && window.AdaptiveReader.renderLessonCard) {
+    lessonRows = window.AdaptiveReader.renderLessonCard({
+      root: lessonRoot, rows: lessonRows, level: level, kind: kind, preview: preview,
+      learned: function (entry) { return state.learned.includes(key(entry)); },
+      open: detail, refresh: render
+    });
+  }
+  var rows = lessonRows.filter(function (e) {""")
+        html.write_text(source)
+    shutil.copy2(Path(__file__).with_name("lesson-card.css"), assets / "lesson-card.css")

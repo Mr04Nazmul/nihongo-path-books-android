@@ -1,3 +1,4 @@
+import { renderLessonCard } from './lesson-card.mjs';
 import { mockStudyPriority, mountMockExam } from './mock-exam.mjs';
 import "./reader-compat.mjs";
 import { createProfileCache, dailyStudyPlan } from '../session.mjs';
@@ -253,4 +254,4 @@ function mountFromAssets(data, level, preview, word, meaning) {
   mount(data, level, preview, word, meaning);
 }
 
-window.AdaptiveReader = { mount, mountFromAssets, compareWriting, assessWriting };
+window.AdaptiveReader = { mount, mountFromAssets, compareWriting, assessWriting, renderLessonCard };
