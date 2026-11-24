@@ -1,3 +1,4 @@
+import { initialReaderPacing, observeReaderPacing } from './pacing.mjs';
 import { modelReadiness, validAttempt } from './activation.mjs';
 import { defaultPrior, observeSkill, emissions, informationGain, validateAbility } from './models.mjs';
 import { Rating, retentionAt, reviewCard } from './memory.mjs';
@@ -18,6 +19,7 @@ function createProfileAccumulator(protectColdStart) {
   let sessions = 0;
   let answers = 0;
   let lastAnswer = -Infinity;
+  let pacing = initialReaderPacing();
   function append(event) {
     if (seen.has(event.id)) return;
     seen.add(event.id);
@@ -27,6 +29,9 @@ function createProfileAccumulator(protectColdStart) {
     if (typeof event.correct === 'boolean') {
       if (event.at - lastAnswer >= 1800000) sessions++;
       lastAnswer = event.at;
+      // Replay pacing from SQLite after restart. Exam results never enter this history.
+      if (protectColdStart && modelReadiness(sessions, answers).pacing &&
+          !event.item.includes(':sakura-')) pacing = observeReaderPacing(pacing, event);
       answers++;
       const scope = skillScope(event.skill);
       const previous = skills.get(event.skill) ?? { belief: defaultPrior };
@@ -56,7 +61,7 @@ function createProfileAccumulator(protectColdStart) {
   function current() {
     const readiness = modelReadiness(sessions, answers);
     return { cards, skills: protectColdStart && !readiness.mastery ? new Map() : skills,
-      skillProfile, readiness, sessions };
+      skillProfile, readiness, sessions, pacing };
   }
   return { append, current };
 }

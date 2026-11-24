@@ -1,3 +1,15 @@
+const readerPacingSettings = {
+  target: 0.75, kp: 0.7, ki: 0.002, kd: 0.1, smoothing: 0.2, limit: 0.4, maxStep: 0.05,
+};
+
+export function initialReaderPacing() {
+  return { accuracy: readerPacingSettings.target, error: 0, derivative: 0, integral: 0, output: 0 };
+}
+
+export function observeReaderPacing(previous, {correct, seconds}) {
+  return updateDifficulty(previous, correct, Math.min(120, seconds), readerPacingSettings);
+}
+
 export function updateDifficulty(previous, correct, seconds, settings) {
   const { target, kp, ki, kd, smoothing, limit, maxStep } = settings;
   if (!(seconds > 0)) throw new RangeError('Elapsed time must be positive');

@@ -50,3 +50,15 @@ test('an appended answer updates once, replay after backfill matches a fresh pro
 test('study strategy sampling stays off with no retained outcomes', () => {
   assert.equal(strategyPriorities(attempts(100), () => { throw new Error('Unexpected sampling'); }, 12).size, 0);
 });
+
+test('pacing survives cache recreation and interrupted sessions via replay', () => {
+  const events = attempts(75).map((event, i) => i < 60 ? event :
+    { ...event, correct: false, rating: 1 });
+  const live = createProfileCache();
+  assert.equal(live(events.slice(0, 55)).pacing.output, 0);
+  live(events.slice(0, 70));
+  const state = live(events).pacing;
+  assert.ok(state.output < 0);
+  assert.ok(state.output >= -0.4);
+  assert.deepEqual(createProfileCache()([...events].reverse()).pacing, state);
+});

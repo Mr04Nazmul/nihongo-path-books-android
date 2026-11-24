@@ -17,6 +17,7 @@ def replace(path, old, new):
 
 shutil.copy2(overlay / 'AdaptiveHistory.java', java / 'AdaptiveHistory.java')
 shutil.copy2(overlay / 'adaptive-reader.js', reader / 'adaptive-reader.js')
+shutil.copy2(overlay / 'adaptive-reminder-worker.js', reader / 'adaptive-reminder-worker.js')
 shutil.copytree(overlay / 'licenses', app / 'assets' / 'adaptive-licenses', dirs_exist_ok=True)
 replace(reader / 'study.html', '</head>', '<script src="adaptive-reader.js"></script></head>')
 replace(reader / 'study.html', '  migrateAliases();\n  render();\n}).catch', '''  migrateAliases();

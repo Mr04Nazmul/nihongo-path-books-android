@@ -4,11 +4,9 @@ import "./reader-compat.mjs";
 import { createProfileCache, dailyStudyPlan } from '../session.mjs';
 import { selectQuestion } from '../models.mjs';
 import { curriculumGraphs, earlierLevelLesson } from './curriculum-graph.mjs';
-import { chooseReminder, fitStudySessions, updateDifficulty } from '../pacing.mjs';
 import { assessWriting, compareWriting } from '../strokes.mjs';
 import { strategyPriorities } from '../exploration.mjs';
 
-const settings = { target: 0.75, kp: 0.7, ki: 0.002, kd: 0.1, smoothing: 0.2, limit: 0.4, maxStep: 0.05 };
 const weights = { retention: 2, mastery: 2, exam: 1, time: 0.06, load: 0.04 };
 const kana = /^[ぁ-ゖァ-ヺー]+$/u;
 const format = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' });
@@ -33,10 +31,6 @@ function shuffle(values) {
   return result;
 }
 
-function coldPacing() {
-  return { accuracy: settings.target, error: 0, derivative: 0, integral: 0, output: 0 };
-}
-
 function lessons(data, level, preview, word, meaning) {
   const prefix = level + ':' + (preview ? 'preview:' : 'full:');
   const rows = Object.keys(data).flatMap(kind => data[kind].flatMap(entry => {
@@ -58,31 +52,35 @@ function lessons(data, level, preview, word, meaning) {
   return rows.filter(row => ambiguous.get(row.kind + ':' + row.prompt).size === 1);
 }
 
+let reminderRequest;
 function trainReminder(native) {
-  if (!native.adaptiveStudySessions) return;
+  if (!native.adaptiveStudySessions || !native.adaptiveReminder) return;
+  reminderRequest?.();
   try {
-    const now = Date.now();
     const sessions = JSON.parse(native.adaptiveStudySessions());
-    if (!sessions.length) return;
-    const model = fitStudySessions(sessions, now - 90 * 86400000, now);
-    if (!model) { native.adaptiveReminder(0); return; }
-    const hourly = Array(24).fill(0);
-    for (const time of sessions) hourly[new Date(time).getHours()]++;
-    const highest = Math.max(...hourly);
-    const slots = [];
-    for (let day = 0; day <= 1; day++) {
-      for (let hour = 8; hour < 21; hour++) {
-        if (hourly[hour] < Math.max(2, highest / 2)) continue;
-        const candidate = new Date(now);
-        candidate.setDate(candidate.getDate() + day);
-        candidate.setHours(hour, 0, 0, 0);
-        slots.push({ at: candidate.getTime(), quiet: false });
-      }
+    if (!Array.isArray(sessions) || !sessions.length) return;
+    if (sessions.length < 20 || typeof Worker === 'undefined') {
+      native.adaptiveReminder(0);
+      return;
     }
-    const selected = chooseReminder(model, slots, null, { permitted: true, alreadyScheduled: false, asOf: now + 3600000 });
-    native.adaptiveReminder(selected || 0);
+    const worker = new Worker('adaptive-reminder-worker.js');
+    let settled = false;
+    const finish = value => {
+      if (settled) return;
+      settled = true;
+      worker.terminate();
+      window.clearTimeout(timeout);
+      reminderRequest = undefined;
+      if (typeof value === 'number') native.adaptiveReminder(Number.isFinite(value) ? value : 0);
+    };
+    const timeout = window.setTimeout(() => finish(0), 5000);
+    reminderRequest = () => finish();
+    worker.onmessage = event => finish(typeof event.data === 'number' ? event.data : 0);
+    worker.onerror = () => finish(0);
+    try { worker.postMessage({ sessions, now: Date.now() }); }
+    catch (_) { finish(0); }
   } catch (_) {
-    // An unavailable profile leaves the existing daily reminder in charge.
+    native.adaptiveReminder(0);
   }
 }
 
@@ -114,7 +112,6 @@ export function mount(data, level, preview, word, meaning) {
   document.querySelector('#tabs').insertAdjacentElement('afterend', panel);
   let used = new Set();
   let remaining = 300;
-  let pacing = coldPacing();
   const profileFor = createProfileCache();
 
   function history() {
@@ -181,7 +178,7 @@ export function mount(data, level, preview, word, meaning) {
         return variants;
       });
       const questionProfiles = new Map(eligible.map(question => [question.skill, profile.skillProfile(question.skill)]));
-      chosen = !profile.readiness.entropy ? plan[0] : (selectQuestion(eligible, questionProfiles, { offset: pacing.output, radius: 0.2 }, 0.05) ||
+      chosen = !profile.readiness.entropy ? plan[0] : (selectQuestion(eligible, questionProfiles, { offset: profile.pacing.output, radius: 0.2 }, 0.05) ||
         selectQuestion(eligible.filter(question => !question.reverse), questionProfiles))?.question;
     }
     if (!chosen) { show(mode === 'review' ? 'এখন কোনো রিভিউ বাকি নেই।' : 'এই সেশনে আর কোনো পাঠ বাকি নেই।'); return; }
@@ -204,9 +201,6 @@ export function mount(data, level, preview, word, meaning) {
       if (!used.size) window.setTimeout(() => trainReminder(native), 0);
       used.add(chosen.item);
       remaining -= seconds;
-      if (profile.readiness.pacing && !chosen.mock) {
-        pacing = updateDifficulty(pacing, correct, Math.min(120, seconds), settings);
-      }
       show(correct ? 'সঠিক' : 'সঠিক উত্তর · ' + correctAnswer);
       if (chosen.mock && chosen.explanation) show(chosen.explanation);
       output.appendChild(button('পরেরটি', () => next(mode)));
