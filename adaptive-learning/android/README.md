@@ -27,7 +27,7 @@ are copied to the adaptive database.
 The preview can schedule one adaptive reminder through the existing daily
 notification channel. It uses existing permission checks and an 08:00–21:00
 local window. With sparse session history it keeps the 19:00 default.
-Vocabulary and kanji can use both answer directions. Their difficulty values
+Vocabulary and kanji can use both answer directions. Japanese-only vocabulary reading questions are generated from unambiguous course entries. Their difficulty values
 are cold-start exercise priors. They still need on-device calibration.
 
 The Android sync client, Edge route and SQL migration are supplied for
@@ -37,11 +37,15 @@ route have been tested together. The integration does not enable live sync
 or change the existing study-state and reward APIs.
 
 Run `node android/grammar-audit.mjs /path/to/lessons-*.json` with approved
-curriculum inputs for the MDL report. The supplied run examined the 25
-free preview grammar entries across N5–N1. It found 28 formation clauses and
-no description-length improvement with the checked rule set. It does not
-rewrite grammar. The prerequisite set includes three source-matched
-grammar edges and separate kanji-to-vocabulary relationships. The full
-prerequisite map and the linguistic review of the full premium corpus
-remain pending. Sakura papers remain separate because the available audit
-does not clear them for this practice pool.
+curriculum inputs for the MDL report. The full read-only audit covered 792
+grammar entries in Supabase, with 787 clauses. It shortlisted a 502-bit
+reduction for the plain-clause rewrite without changing the source grammar.
+Kanji-to-word and exact example-word-to-grammar relationships operate across
+all five level readers. Three source-matched grammar prerequisites are
+enforced. Relationships are restricted to the currently authorized lesson
+payload, and full cross-level prerequisite curation remains pending.
+
+All 17 reviewed Sakura samples in the available archive trace to
+NihongoMock. The archive records language review but no redistribution
+grant. The reader uses original practice questions from its own curriculum
+data. Sakura papers and the production database are unchanged.

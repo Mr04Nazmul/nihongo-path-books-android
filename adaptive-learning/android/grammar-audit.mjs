@@ -13,7 +13,7 @@ const verifiedFormations = [
   ['noun-modifier', 'Nの', 'Japanese nominal modifier marked with の'],
 ];
 const rules = verifiedFormations.map(([id, prefix, description]) => ({
-  id, prefix, description, apply: (base, form) => form === id ? prefix + ' + ' + base : null,
+  id, prefix, description, apply: (base, form) => form === '' ? prefix + ' + ' + base : null,
 }));
 const examples = [];
 const locations = new Map();
@@ -29,8 +29,8 @@ for (const path of process.argv.slice(2)) {
       locations.get(surface).push(row.id);
       const match = rules.find(rule => surface.startsWith(rule.prefix + ' + '));
       examples.push(match ?
-        { surface, base: surface.slice(match.prefix.length + 3), form: match.id } :
-        { surface, base: '', form: '' });
+        { surface, base: surface.slice(match.prefix.length + 3), form: '' } :
+        { surface, base: '', form: 'literal' });
     }
   }
 }

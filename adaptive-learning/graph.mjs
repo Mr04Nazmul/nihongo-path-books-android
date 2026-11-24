@@ -20,6 +20,7 @@ export class PrerequisiteGraph {
       }
     }
     if (this.order.length !== this.parents.size) throw new Error('Cycle in curriculum prerequisites');
+    this.rank = new Map(this.order.map((id, index) => [id, index]));
   }
 
   weakPrerequisites(target, mastery, available, threshold) {
@@ -31,6 +32,7 @@ export class PrerequisiteGraph {
       ancestors.add(id);
       for (const parent of this.parents.get(id)) pending.push(parent);
     }
-    return this.order.filter(id => ancestors.has(id) && available.has(id) && (mastery.get(id) ?? 0) < threshold);
+    return [...ancestors].filter(id => available.has(id) && (mastery.get(id) ?? 0) < threshold)
+      .sort((a, b) => this.rank.get(a) - this.rank.get(b));
   }
 }

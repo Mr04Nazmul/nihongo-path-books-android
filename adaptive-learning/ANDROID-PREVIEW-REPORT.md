@@ -19,14 +19,16 @@ Cross-account isolation, duplicate pushes, cursors, cascading deletion and
 service-only RPC permission passed in a PGlite integration test. Production
 sync is off. No migration or Edge updates were deployed.
 
-12 Node tests passed, including the reader action-to-bridge flow and
+13 Node tests passed, including the reader action-to-bridge flow and
 the PostgreSQL migration integration. AdaptiveHistory independently
 compiled against Android API 36. The synthetic desktop benchmark ran
 4,800 reviews and 240 candidates. Median replay was 25.4 ms and median
 planning was 52.5 ms. No physical Android device measurement is claimed.
 
-The MDL preview audit covers 25 grammar rows and 28 formation clauses.
-None of the checked rewrites reduced description length. No source
-grammar was changed. Full curriculum graph coverage, full-corpus
-linguistic validation, Sakura content clearance, Android rendering
-comparison and live device end-to-end verification are still required.
+The full read-only MDL audit covered 792 grammar entries and 787 formation
+clauses across N5–N1. Twelve formations recurred. The checked plain-clause
+rule reduced total description length from 192861 to 192359 bits. No
+grammar was rewritten. Automatic curriculum relationships and three
+source-aligned hard prerequisite edges are wired into the reader.
+Cross-level prerequisite curation, Sakura reuse clearance, production sync
+and Android device end-to-end verification remain pending.

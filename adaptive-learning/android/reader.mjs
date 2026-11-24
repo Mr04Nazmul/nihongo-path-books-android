@@ -1,19 +1,13 @@
 import { buildProfile, dailyStudyPlan } from '../session.mjs';
 import { selectQuestion } from '../models.mjs';
-import { PrerequisiteGraph } from '../graph.mjs';
+import { curriculumGraphs } from './curriculum-graph.mjs';
 import { chooseReminder, fitStudySessions, updateDifficulty } from '../pacing.mjs';
 import { compareWriting } from '../strokes.mjs';
 import { sampleLearningPriority } from '../exploration.mjs';
 
 const settings = { target: 0.75, kp: 0.7, ki: 0.002, kd: 0.1, smoothing: 0.2, limit: 0.4, maxStep: 0.05 };
 const weights = { retention: 2, mastery: 2, exam: 1, time: 0.06, load: 0.04 };
-const grammarPrerequisites = {
-  N3: [['own-n3-grammar-0001', 'own-n3-grammar-0002']],
-  N4: [
-    ['own-n4-grammar-0001', 'own-n4-grammar-0002'],
-    ['own-n4-grammar-0002', 'own-n4-grammar-0003'],
-  ],
-};
+const kana = /^[ぁ-ゖァ-ヺー]+$/u;
 const format = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' });
 
 function button(text, action) {
@@ -47,14 +41,16 @@ function lessons(data, level, preview, word, meaning) {
     const answer = String(meaning(entry) || '').trim();
     if (!entry.id || !prompt || !answer) return [];
     const id = prefix + kind + ':' + entry.id;
-    return [{ id, item: id, skill: id, kind, prompt, answer, guess: 0.25, slip: 0.05,
-      difficulty: 0, accessible: true, examAligned: false, seconds: 25, load: 1 }];
+    const reading = kind === 'vocab' ? String(entry.reading || '').normalize('NFKC').trim() : '';
+    return [{ id, item: id, skill: id, kind, prompt, answer, entry,
+      reading: kana.test(reading) && /[一-龯々]/u.test(prompt) ? reading : '',
+      guess: 0.25, slip: 0.05, difficulty: 0, accessible: true, examAligned: false, seconds: 25, load: 1 }];
   }));
   const ambiguous = new Map();
   for (const row of rows) {
     const key = row.kind + ':' + row.prompt;
     if (!ambiguous.has(key)) ambiguous.set(key, new Set());
-    ambiguous.get(key).add(row.answer);
+    ambiguous.get(key).add(row.answer + '\u0000' + row.reading);
   }
   return rows.filter(row => ambiguous.get(row.kind + ':' + row.prompt).size === 1);
 }
@@ -100,19 +96,11 @@ function mount(data, level, preview, word, meaning) {
     if (!group.byMeaning.has(row.answer)) group.byMeaning.set(row.answer, new Set());
     group.byMeaning.get(row.answer).add(row.prompt);
   }
-  const items = rows.filter(row => groups.get(row.kind).meanings.size >= 4);
+  const readings = new Set(rows.map(row => row.reading).filter(Boolean));
+  const items = rows.filter(row => groups.get(row.kind).meanings.size >= 4)
+    .map(row => ({ ...row, examAligned: !!row.reading && readings.size >= 4 }));
   if (!items.length) return;
-  const kanji = new Map(items.filter(row => row.kind === 'kanji').map(row => [row.prompt, row.id]));
-  // Character containment is an observed relationship. It supplies a
-  // recommendation in progress, while hard prerequisites await curriculum review.
-  const related = items.flatMap(row => row.kind !== 'vocab' ? [] :
-    [...new Set(Array.from(row.prompt).map(char => kanji.get(char)).filter(Boolean))].map(id => [id, row.id]));
-  const prefix = level + ':' + (preview ? 'preview:' : 'full:') + 'grammar:';
-  const ids = new Set(items.map(row => row.id));
-  const grammarEdges = (grammarPrerequisites[level] || []).map(edge => edge.map(id => prefix + id))
-    .filter(edge => edge.every(id => ids.has(id)));
-  const graph = new PrerequisiteGraph([...ids], [...related, ...grammarEdges]);
-  const prerequisites = new PrerequisiteGraph([...ids], grammarEdges);
+  const { support: graph, required: prerequisites } = curriculumGraphs(items, level, preview);
   const panel = document.createElement('section');
   panel.className = 'adaptive-study';
   panel.setAttribute('aria-live', 'polite');
@@ -179,31 +167,34 @@ function mount(data, level, preview, word, meaning) {
       const eligible = plan.flatMap(row => {
         const priority = spacedEvidence.has(row.id) ? sampleLearningPriority(spacedEvidence.get(row.id)) : 0.5;
         const forward = { ...row, priority };
+        const variants = [forward];
         const group = groups.get(row.kind);
-        if (row.kind === 'grammar' || group.words.size < 4 || group.byMeaning.get(row.answer).size !== 1) return [forward];
-        // Two explicit cold-start difficulty priors for the exercise directions.
-        return [forward, { ...forward, reverse: true, difficulty: 0.35 }];
+        if (row.examAligned) variants.push({ ...forward, id: row.id + ':reading', readingQuestion: true, difficulty: 0.2 });
+        if (row.kind !== 'grammar' && group.words.size >= 4 && group.byMeaning.get(row.answer).size === 1) {
+          variants.push({ ...forward, id: row.id + ':reverse', reverse: true, difficulty: 0.35 });
+        }
+        return variants;
       });
       chosen = (selectQuestion(eligible, profile.skills, { offset: pacing.output, radius: 0.2 }) ||
         selectQuestion(eligible.filter(question => !question.reverse), profile.skills))?.question;
     }
     if (!chosen) { show(mode === 'review' ? 'এখন কোনো রিভিউ বাকি নেই।' : 'এই সেশনে আর কোনো পাঠ বাকি নেই।'); return; }
     const group = groups.get(chosen.kind);
-    const correctAnswer = chosen.reverse ? chosen.prompt : chosen.answer;
-    const possible = chosen.reverse ? group.words : group.meanings;
-    show(chosen.reverse ? chosen.answer : chosen.prompt);
+    const correctAnswer = chosen.readingQuestion ? chosen.reading : chosen.reverse ? chosen.prompt : chosen.answer;
+    const possible = chosen.readingQuestion ? readings : chosen.reverse ? group.words : group.meanings;
+    show(chosen.readingQuestion ? '読み方 · ' + chosen.prompt : chosen.reverse ? chosen.answer : chosen.prompt);
     const distractors = shuffle([...possible].filter(value => value !== correctAnswer)).slice(0, 3);
     const started = performance.now();
     const options = shuffle([correctAnswer, ...distractors]).map(value => button(value, () => {
       for (const option of options) option.disabled = true;
       const correct = value === correctAnswer;
       const seconds = Math.max(1, Math.round((performance.now() - started) / 1000));
-      if (!native.recordAdaptiveAnswer(JSON.stringify({ item: chosen.id, correct, seconds, reverse: !!chosen.reverse }))) {
+      if (!native.recordAdaptiveAnswer(JSON.stringify({ item: chosen.item, correct, seconds, variant: chosen.readingQuestion ? "reading" : chosen.reverse ? "reverse" : "meaning" }))) {
         show('এই উত্তরটি সেভ করা যায়নি।');
         return;
       }
       if (!used.size) window.setTimeout(() => trainReminder(native), 0);
-      used.add(chosen.id);
+      used.add(chosen.item);
       remaining -= seconds;
       pacing = updateDifficulty(pacing, correct, Math.min(120, seconds), settings);
       show(correct ? 'সঠিক' : 'সঠিক উত্তর · ' + correctAnswer);
@@ -227,10 +218,10 @@ function mount(data, level, preview, word, meaning) {
         if (future.length) show('পরের রিভিউ · ' + format.format(Math.min(...future)));
         const mastery = new Map([...state.skills].map(([id, skill]) => [id, skill.mastery]));
         const available = new Set(items.map(row => row.id));
-        const weak = items.find(row => row.kind === 'vocab' && mastery.has(row.id) && mastery.get(row.id) < 0.55);
+        const weak = items.find(row => row.kind !== 'kanji' && mastery.has(row.id) && mastery.get(row.id) < 0.55);
         if (weak) {
           const suggestion = graph.weakPrerequisites(weak.id, mastery, available, 0.55)[0];
-          if (suggestion) show('সহায়ক কানজি · ' + items.find(row => row.id === suggestion).prompt);
+          if (suggestion) show('সহায়ক পাঠ · ' + items.find(row => row.id === suggestion).prompt);
         }
       } catch (error) { show(error.message); }
     }),

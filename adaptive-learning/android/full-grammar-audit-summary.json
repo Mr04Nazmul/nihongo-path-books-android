@@ -1,0 +1,39 @@
+{
+  "levels": [
+    {
+      "file": "lessons-n1.json",
+      "rows": 217
+    },
+    {
+      "file": "lessons-n2.json",
+      "rows": 208
+    },
+    {
+      "file": "lessons-n3.json",
+      "rows": 144
+    },
+    {
+      "file": "lessons-n4.json",
+      "rows": 113
+    },
+    {
+      "file": "lessons-n5.json",
+      "rows": 110
+    }
+  ],
+  "formationClauses": 787,
+  "before": {
+    "rules": [],
+    "modelBits": 1,
+    "dataBits": 192860
+  },
+  "after": {
+    "rules": [
+      "plain-clause"
+    ],
+    "modelBits": 541,
+    "dataBits": 191818
+  },
+  "changesApplied": 0,
+  "repeatedFormationCount": 12
+}
