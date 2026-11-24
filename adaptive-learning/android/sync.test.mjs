@@ -18,6 +18,7 @@ test('adaptive sync migration isolates owners, deduplicates retries and cascades
       INSERT INTO books.users VALUES ('00000000-0000-4000-8000-000000000001'), ('00000000-0000-4000-8000-000000000002');
       INSERT INTO books.sessions VALUES
         ('00000000-0000-4000-8000-000000000001','one',now()+interval '1 day'),
+        ('00000000-0000-4000-8000-000000000001','second-device',now()+interval '1 day'),
         ('00000000-0000-4000-8000-000000000002','two',now()+interval '1 day');
     `);
     await db.exec(await readFile(new URL('../adaptive-events.sql', import.meta.url), 'utf8'));
@@ -36,9 +37,17 @@ test('adaptive sync migration isolates owners, deduplicates retries and cascades
     await db.exec('RESET ROLE; SET ROLE service_role');
     const first = await rpc('one', '0', [event]);
     assert.equal(first.events.length, 1);
+    // Replay a send after the first response was lost on reconnect.
     assert.deepEqual(await rpc('one', '0', [event]), first);
-    assert.deepEqual(await rpc('one', first.events[0].cursor, []), { events: [] });
+    assert.deepEqual(await rpc('second-device', '0', []), first);
+    const secondEvent = {
+      ...event, id: '00000000-0000-4000-8000-000000000003', correct: false, rating: 1,
+    };
+    const second = await rpc('second-device', first.events[0].cursor, [secondEvent]);
+    assert.deepEqual(second.events.map(row => row.event), [secondEvent]);
+    assert.deepEqual(await rpc('one', first.events[0].cursor, []), second);
     assert.deepEqual(await rpc('two', '0', []), { events: [] });
+    assert.deepEqual(await rpc('one', second.events[0].cursor, []), { events: [] });
     assert.equal((await rpc('missing', '0', [event])).status, 401);
     await db.exec("RESET ROLE; DELETE FROM books.users WHERE id='00000000-0000-4000-8000-000000000001'");
     assert.equal((await db.query('SELECT count(*)::int AS count FROM books.adaptive_events')).rows[0].count, 0);
