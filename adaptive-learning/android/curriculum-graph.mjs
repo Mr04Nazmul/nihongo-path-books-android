@@ -53,13 +53,25 @@ export function curriculumGraphs(items, level, preview) {
 }
 
 
-// Source-backed prerequisite across levels. The existing level switch owns
-// entitlement, so this recommendation does not open protected material itself.
+// Each prerequisite is used directly in the target formation or its worked
+// examples. Selecting a suggestion still goes through native level access.
+const earlierGrammar = new Map([
+  // あっての uses noun phrases such as 家族の支え in its worked examples.
+  ['own-n1-grammar-005', { level: 'N5', label: 'N1 の N2' }],
+  // The ばかりか formation explicitly starts with 普通形.
+  ['own-n2-grammar-0005', { level: 'N4', label: 'Plain form' }],
+  // 〜ないと and 〜なくちゃ both start from the plain negative form.
+  ['own-n3-grammar-0004', { level: 'N4', label: 'Plain form' }],
+  // The N4 plain-form lesson starts with a dictionary-form verb.
+  ['own-n4-grammar-0001', { level: 'N5', label: 'V辞書形' }],
+]);
+
 export function earlierLevelLesson(level, itemId) {
-  if (level === 'N4' && itemId.endsWith(':own-n4-grammar-0001')) {
-    return { level: 'N5', section: 'grammar', label: 'V辞書形' };
-  }
-  return null;
+  const [itemLevel, scope, kind, id] = itemId.split(':');
+  if (itemLevel !== level || (scope !== 'preview' && scope !== 'full') ||
+      kind !== 'grammar' || !id?.startsWith('own-' + level.toLowerCase() + '-grammar-')) return null;
+  const lesson = earlierGrammar.get(id);
+  return lesson ? { ...lesson, section: 'grammar' } : null;
 }
 
 export function knowledgeFacts(entry) {
