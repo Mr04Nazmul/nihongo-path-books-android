@@ -48,7 +48,7 @@ test('regular study does not fetch or show Sakura papers automatically', async (
     mount({ grammar }, 'N5', false, row => row.pattern, row => row.meaning);
     const buttons = () => [...document.querySelectorAll('button')];
     buttons().find(node => node.textContent === 'Daily Smart Study').click();
-    assert.equal(document.querySelector('.adaptive-study section').hidden, true);
+    assert.equal(document.querySelector('dialog.mock-screen').hasAttribute('open'), false);
     assert.equal(document.querySelector('.adaptive-study p').textContent, '一');
     assert.ok(buttons().some(node => node.textContent === 'Mock Test'));
   } finally {

@@ -102,3 +102,4 @@ def apply_lesson_card(root: Path):
   var rows = lessonRows.filter(function (e) {""")
         html.write_text(source)
     shutil.copy2(Path(__file__).with_name("lesson-card.css"), assets / "lesson-card.css")
+    shutil.copy2(Path(__file__).with_name("mock-exam.css"), assets / "mock-exam.css")

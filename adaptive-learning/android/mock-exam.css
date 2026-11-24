@@ -1,0 +1,34 @@
+.mock-screen:not([open]){display:none}
+.mock-screen[open]{position:fixed;inset:0;z-index:40;display:block;box-sizing:border-box;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:0;border:0;overflow:auto;color:var(--ink,#40152a);background:var(--paper,#fff7f9)}
+.mock-screen::backdrop{background:var(--paper,#fff7f9)}
+.mock-screen>header{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:12px;padding:9px 14px;background:var(--surface,#fff2f6);border-bottom:1px solid var(--line,#e7c7d3)}
+.mock-screen header h2{font-size:19px;margin:0}
+.mock-screen header button{min-width:42px;min-height:42px;font-size:23px;color:var(--accent,#a03156)}
+.mock-screen-content{max-width:630px;margin:auto;padding:14px 14px 22px}
+.mock-screen-content>p{margin:10px 0}
+.mock-tabs,.mock-controls,.mock-stats{display:flex;align-items:center;gap:6px;margin:0 0 12px}
+.mock-stats{justify-content:space-around;padding:12px;border:1px solid var(--line,#e7c7d3);border-radius:15px;background:var(--surface,#fff2f6)}
+.mock-screen button:disabled{opacity:.45}
+.mock-screen .mock-chip,.mock-screen .mock-secondary{flex:1;min-height:41px;border:1px solid var(--line,#e7c7d3);border-radius:12px;background:var(--surface,#fff2f6);font-weight:700;padding:4px}
+.mock-screen .mock-chip[aria-pressed=true],.mock-screen .mock-primary,.mock-play{color:white;background:linear-gradient(#b63867,#82183e)}
+.mock-screen .mock-primary{display:block;width:100%;padding:12px;border-radius:16px;min-height:44px;font-weight:700;margin-top:9px}
+.mock-hero{padding:18px 14px;border-radius:17px;background:var(--pale,#f8e0e9);margin:0 0 12px;color:var(--ink,#40152a)}
+.mock-screen .mock-paper-card,.mock-section-row{width:100%;box-sizing:border-box;border-radius:14px;border:1px solid var(--line,#e7c7d3);background:var(--surface,#fff2f6);margin:0 0 9px;padding:13px}
+.mock-screen .mock-paper-card{display:flex;justify-content:space-between;align-items:center;text-align:left}
+.mock-paper-card small{display:block;margin-top:3px}
+.mock-play{padding:8px 11px;border-radius:50%}
+.mock-progress{display:block;width:100%;height:7px;margin:0 0 10px;accent-color:var(--accent,#a03156)}
+.mock-question-label{font-size:15px;color:var(--accent,#a03156)}
+.mock-instruction,.mock-passage{border:1px solid var(--line,#e7c7d3);padding:12px;border-radius:13px;margin:0 0 10px;background:var(--pale,#f8e0e9);line-height:1.65;overflow-wrap:anywhere}
+.mock-passage{background:var(--surface,#fff2f6)}
+.mock-prompt{font-size:20px;line-height:1.65;margin:0 0 12px;overflow-wrap:anywhere}
+.mock-screen .mock-choice{display:flex;width:100%;align-items:center;gap:10px;min-height:45px;margin:0 0 8px;text-align:left;padding:7px 10px;border:1px solid var(--line,#e7c7d3);border-radius:12px;background:var(--surface,#fff2f6)}
+.mock-choice-number{flex:none;width:25px;height:25px;line-height:25px;text-align:center;border:1px solid var(--line,#e7c7d3);border-radius:50%}
+.mock-screen .mock-choice[aria-pressed=true]{border-color:var(--accent,#a03156);background:var(--pale,#f8e0e9)}
+.mock-choice[aria-pressed=true] .mock-choice-number{background:var(--accent,#a03156);color:white}
+.mock-controls{position:sticky;bottom:0;background:var(--paper,#fff7f9);padding:8px 0;margin-top:12px}
+.mock-controls .mock-secondary{flex:0 1 auto;min-width:43px;padding:5px 8px}
+.mock-controls .mock-primary{width:auto;flex:1;margin:0}
+.mock-screen>header{background-color:var(--surface,#fff2f6);background-image:linear-gradient(to right,var(--surface,#fff2f6) 72%,transparent)}
+.mock-hero{min-height:35px;padding-right:85px;background:var(--pale,#f8e0e9) url(study-art.png) right center/180px 60px no-repeat}
+.mock-screen button:focus-visible{outline:2px solid var(--accent,#a03156);outline-offset:1px}
