@@ -17,3 +17,25 @@ export function sampleLearningPriority({ successes, failures }, random = Math.ra
   const failure = gamma(1 + failures, random);
   return success / (success + failure);
 }
+
+export function studyStrategy(event) {
+  if (event.item.includes(':sakura-')) return 'mock';
+  if (event.difficulty === 0.35) return 'reverse';
+  if (event.difficulty === 0.2) return 'reading';
+  return 'meaning';
+}
+
+export function strategyPriorities(events, random = Math.random) {
+  const evidence = new Map(['meaning', 'reading', 'reverse', 'mock']
+    .map(strategy => [strategy, { successes: 0, failures: 0 }]));
+  const previous = new Map();
+  const ordered = [...events].sort((a, b) => a.at - b.at || a.id.localeCompare(b.id));
+  for (const event of ordered) {
+    const prior = previous.get(event.item);
+    if (prior && event.at - prior.at >= 86400000) {
+      evidence.get(studyStrategy(prior))[event.correct ? 'successes' : 'failures']++;
+    }
+    previous.set(event.item, event);
+  }
+  return new Map([...evidence].map(([strategy, counts]) => [strategy, sampleLearningPriority(counts, random)]));
+}

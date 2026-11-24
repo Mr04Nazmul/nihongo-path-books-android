@@ -38,13 +38,9 @@ export function forward(belief, correct, likelihood, transition = defaultTransit
 
 export function observeSkill(prior, correct, likelihood, transition = defaultTransition) {
   const belief = forward(prior, correct, likelihood, transition);
-  const mastered = prior[3];
-  const unmastered = 1 - mastered;
-  if (unmastered < 1e-12) return { belief, mastery: belief[3] };
-  const guess = sum(prior.slice(0, 3).map((p, i) => p * likelihood[i])) / unmastered;
-  const evidence = prior.slice(0, 3).map((p, i) => p * (correct ? likelihood[i] : 1 - likelihood[i]));
-  const learn = sum(evidence.map((p, i) => p * transition[i][3])) / sum(evidence);
-  return { belief, mastery: bkt(mastered, correct, { guess, slip: 1 - likelihood[3], learn }) };
+  // With an absorbing mastered state, this marginal equals the two-state
+  // BKT posterior plus the transition mass from the unmastered states.
+  return { belief, mastery: belief[3] };
 }
 
 export function entropy(probabilities) {
@@ -58,16 +54,25 @@ export function informationGain(prior, likelihood) {
     sum(prior.map((p, i) => p * entropy([likelihood[i], 1 - likelihood[i]]))));
 }
 
-export function selectQuestion(questions, profiles, difficultyWindow) {
-  let best;
+export function selectQuestion(questions, profiles, difficultyWindow, explorationMargin = 0) {
+  let peak = -Infinity;
+  const scored = [];
   for (const question of questions) {
     const { belief = defaultPrior, ability = 0 } = profiles.get(question.skill) ?? {};
     if (difficultyWindow && Math.abs(question.difficulty - ability - difficultyWindow.offset) > difficultyWindow.radius) continue;
     const likelihood = emissions(ability, question.difficulty, question.guess, question.slip);
     const gain = informationGain(belief, likelihood);
-    if (!best || gain > best.gain || (gain === best.gain && ((question.priority ?? 0) > (best.question.priority ?? 0) || ((question.priority ?? 0) === (best.question.priority ?? 0) && question.id < best.question.id)))) {
-      best = { question, gain, likelihood };
-    }
+    peak = Math.max(peak, gain);
+    scored.push({ question, gain, likelihood });
+  }
+  let best;
+  for (const candidate of scored) {
+    if (candidate.gain < peak * (1 - explorationMargin)) continue;
+    const priority = candidate.question.priority ?? 0;
+    const current = best?.question.priority ?? 0;
+    if (!best || priority > current ||
+        (priority === current && (candidate.gain > best.gain ||
+          (candidate.gain === best.gain && candidate.question.id < best.question.id)))) best = candidate;
   }
   return best;
 }
@@ -85,4 +90,27 @@ export function fitAbility(rows, minimum = 40, penalty = 4) {
     else high = ability;
   }
   return (low + high) / 2;
+}
+
+// Approve a personal parameter only if it improves chronological holdout
+// log loss. This gate is separate from fitting and stops the latest responses
+// from being used both to estimate and to validate the candidate.
+export function validateAbility(rows) {
+  if (rows.length < 60) return { ability: 0, evaluated: false, accepted: false };
+  const split = Math.floor(rows.length * 0.75);
+  const train = rows.slice(0, split);
+  const heldOut = rows.slice(split);
+  if (!train.some(r => r.correct) || !train.some(r => !r.correct)
+    || !heldOut.some(r => r.correct) || !heldOut.some(r => !r.correct)) {
+    return { ability: 0, evaluated: false, accepted: false };
+  }
+  const candidate = fitAbility(train);
+  const logLoss = ability => -sum(heldOut.map(row => {
+    const p = sigmoid(ability - row.difficulty);
+    return Math.log(row.correct ? p : 1 - p);
+  })) / heldOut.length;
+  const baselineLoss = logLoss(0);
+  const candidateLoss = logLoss(candidate);
+  const accepted = candidateLoss + 0.005 < baselineLoss;
+  return { ability: accepted ? candidate : 0, evaluated: true, accepted, baselineLoss, candidateLoss };
 }

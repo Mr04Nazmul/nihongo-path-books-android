@@ -19,7 +19,7 @@ final class AdaptiveHistory extends SQLiteOpenHelper {
     }
 
     private AdaptiveHistory(Context context) {
-        super(context, "adaptive-learning.db", null, 2);
+        super(context, "adaptive-learning.db", null, 3);
     }
 
     @Override public void onCreate(SQLiteDatabase db) {
@@ -27,13 +27,39 @@ final class AdaptiveHistory extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX attempts_order ON attempts(owner,scope,at,id)");
         db.execSQL("CREATE TABLE sync_cursors (owner TEXT PRIMARY KEY, cursor TEXT NOT NULL)");
         db.execSQL("CREATE INDEX attempts_pending ON attempts(owner,pending,at,id)");
+        createWritingTable(db);
     }
 
     @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        if (oldVersion != 1) throw new IllegalStateException("Unknown adaptive history version");
-        db.execSQL("ALTER TABLE attempts ADD COLUMN pending INTEGER NOT NULL DEFAULT 1");
-        db.execSQL("CREATE TABLE sync_cursors (owner TEXT PRIMARY KEY, cursor TEXT NOT NULL)");
-        db.execSQL("CREATE INDEX attempts_pending ON attempts(owner,pending,at,id)");
+        if (oldVersion == 1) {
+            db.execSQL("ALTER TABLE attempts ADD COLUMN pending INTEGER NOT NULL DEFAULT 1");
+            db.execSQL("CREATE TABLE sync_cursors (owner TEXT PRIMARY KEY, cursor TEXT NOT NULL)");
+            db.execSQL("CREATE INDEX attempts_pending ON attempts(owner,pending,at,id)");
+        }
+        if (oldVersion < 3) createWritingTable(db);
+    }
+
+    private void createWritingTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE writing_assessments (owner TEXT NOT NULL, glyph TEXT NOT NULL, level TEXT NOT NULL, at INTEGER NOT NULL, summary TEXT NOT NULL, PRIMARY KEY(owner,level,glyph))");
+    }
+
+    void recordWriting(String owner, String level, String glyph, String summary) {
+        if (glyph == null || glyph.codePointCount(0, glyph.length()) != 1
+                || summary == null || summary.length() > 4096) return;
+        try {
+            JSONObject result = new JSONObject(summary);
+            if (!result.has("count")) return;
+            ContentValues values = new ContentValues();
+            values.put("owner", owner);
+            values.put("glyph", glyph);
+            values.put("level", level);
+            values.put("at", System.currentTimeMillis());
+            values.put("summary", result.toString());
+            getWritableDatabase().insertWithOnConflict("writing_assessments", null, values,
+                SQLiteDatabase.CONFLICT_REPLACE);
+        } catch (JSONException | android.database.SQLException ignored) {
+            // Feedback remains available without retaining raw pen paths.
+        }
     }
 
     boolean append(String owner, String level, boolean preview, String raw) {
@@ -168,6 +194,7 @@ final class AdaptiveHistory extends SQLiteOpenHelper {
         try {
             db.delete("attempts", "owner=?", new String[] {owner});
             db.delete("sync_cursors", "owner=?", new String[] {owner});
+            db.delete("writing_assessments", "owner=?", new String[] {owner});
             db.setTransactionSuccessful();
         } finally {
             db.endTransaction();

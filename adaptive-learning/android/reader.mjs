@@ -1,9 +1,9 @@
 import { buildProfile, dailyStudyPlan } from '../session.mjs';
 import { selectQuestion } from '../models.mjs';
-import { curriculumGraphs } from './curriculum-graph.mjs';
+import { curriculumGraphs, earlierLevelLesson } from './curriculum-graph.mjs';
 import { chooseReminder, fitStudySessions, updateDifficulty } from '../pacing.mjs';
-import { compareWriting } from '../strokes.mjs';
-import { sampleLearningPriority } from '../exploration.mjs';
+import { assessWriting, compareWriting } from '../strokes.mjs';
+import { strategyPriorities } from '../exploration.mjs';
 
 const settings = { target: 0.75, kp: 0.7, ki: 0.002, kd: 0.1, smoothing: 0.2, limit: 0.4, maxStep: 0.05 };
 const weights = { retention: 2, mastery: 2, exam: 1, time: 0.06, load: 0.04 };
@@ -162,30 +162,19 @@ export function mount(data, level, preview, word, meaning, sakura) {
       const plan = dailyStudyPlan(estimated, profile, prerequisites, {
         at, seconds: remaining, maxLoad: 16, weights, masteryThreshold: 0.55,
       });
-      const spacedEvidence = new Map();
-      const lastByItem = new Map();
-      for (const event of events.slice().reverse()) {
-        const prior = lastByItem.get(event.item);
-        if (prior && event.at - prior.at >= 86400000) {
-          const counts = spacedEvidence.get(event.item) || { successes: 0, failures: 0 };
-          counts[event.correct ? 'successes' : 'failures']++;
-          spacedEvidence.set(event.item, counts);
-        }
-        lastByItem.set(event.item, event);
-      }
+      const priorities = strategyPriorities(events);
       const eligible = plan.flatMap(row => {
-        const priority = spacedEvidence.has(row.id) ? sampleLearningPriority(spacedEvidence.get(row.id)) : 0.5;
-        const forward = { ...row, priority };
+        const forward = { ...row, priority: priorities.get(row.mock ? 'mock' : 'meaning') };
         const variants = [forward];
         if (row.mock) return variants;
         const group = groups.get(row.kind);
-        if (row.examAligned) variants.push({ ...forward, id: row.id + ':reading', readingQuestion: true, difficulty: 0.2 });
+        if (row.examAligned) variants.push({ ...forward, id: row.id + ':reading', readingQuestion: true, difficulty: 0.2, priority: priorities.get('reading') });
         if (row.kind !== 'grammar' && group.words.size >= 4 && group.byMeaning.get(row.answer).size === 1) {
-          variants.push({ ...forward, id: row.id + ':reverse', reverse: true, difficulty: 0.35 });
+          variants.push({ ...forward, id: row.id + ':reverse', reverse: true, difficulty: 0.35, priority: priorities.get('reverse') });
         }
         return variants;
       });
-      chosen = (selectQuestion(eligible, profile.skills, { offset: pacing.output, radius: 0.2 }) ||
+      chosen = (selectQuestion(eligible, profile.skills, { offset: pacing.output, radius: 0.2 }, 0.05) ||
         selectQuestion(eligible.filter(question => !question.reverse), profile.skills))?.question;
     }
     if (!chosen) { show(mode === 'review' ? 'এখন কোনো রিভিউ বাকি নেই।' : 'এই সেশনে আর কোনো পাঠ বাকি নেই।'); return; }
@@ -235,6 +224,11 @@ export function mount(data, level, preview, word, meaning, sakura) {
         if (weak) {
           const suggestion = graph.weakPrerequisites(weak.id, mastery, available, 0.55)[0];
           if (suggestion) show('সহায়ক পাঠ · ' + items.find(row => row.id === suggestion).prompt);
+          const earlier = earlierLevelLesson(level, weak.id);
+          if (earlier && native.selectStudyLevel) output.appendChild(button(
+            'সহায়ক পাঠ · ' + earlier.level + ' ' + earlier.label,
+            () => native.selectStudyLevel(earlier.level, earlier.section)));
+
         }
       } catch (error) { show(error.message); }
     }),
@@ -254,4 +248,4 @@ async function mountFromAssets(data, level, preview, word, meaning) {
   mount(data, level, preview, word, meaning, sakura);
 }
 
-window.AdaptiveReader = { mount, mountFromAssets, compareWriting };
+window.AdaptiveReader = { mount, mountFromAssets, compareWriting, assessWriting };

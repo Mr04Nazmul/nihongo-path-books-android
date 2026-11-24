@@ -84,9 +84,17 @@ replace(reader / 'practice.js',
         return [point.x/109,point.y/109];
       });
     });
-    var scores=window.AdaptiveReader.compareWriting(paths.map(function(p){return p.points}),template);
-    if(!scores){status.textContent='প্রতিটি স্ট্রোক টেনে লিখুন।';return;}
-    status.textContent='গাইডের সঙ্গে সবচেয়ে বেশি পার্থক্য · স্ট্রোক '+(scores.indexOf(Math.max.apply(null,scores))+1);
+    var result=window.AdaptiveReader.assessWriting(paths.map(function(p){return p.points}),template);
+    if(window.StudyNative && window.StudyNative.adaptiveWriting) {
+      window.StudyNative.adaptiveWriting(document.querySelector('#character').textContent.trim(), JSON.stringify(result));
+    }
+    if(!result.strokes){status.textContent='প্রতিটি স্ট্রোক টেনে লিখুন।';return;}
+    var reversed=result.strokes.findIndex(function(s){return s.reversed;});
+    var misplaced=result.strokes.findIndex(function(s){return s.otherStroke!==null;});
+    var shape=result.strokes.map(function(s){return s.shape;});
+    if(reversed!==-1)status.textContent='স্ট্রোকের দিক দেখুন · '+(reversed+1);
+    else if(misplaced!==-1)status.textContent='স্ট্রোকের ক্রম দেখুন · '+(misplaced+1);
+    else status.textContent='গাইডের সঙ্গে সবচেয়ে বেশি পার্থক্য · স্ট্রোক '+(shape.indexOf(Math.max.apply(null,shape))+1);
   };
 }
 var modes=panel.querySelectorAll''')
@@ -193,3 +201,17 @@ replace(reminder, ' public static void schedule(Context c){if(!enabled(c))return
  }''')
 replace(reminder, 'if(!enabled(c)||!allowed(c))return;String today=dateKey',
         'if(!enabled(c)||!allowed(c)||quiet(System.currentTimeMillis()))return;String today=dateKey')
+
+replace(bridge, '    @JavascriptInterface\n    public final String adaptiveHistory()', '''    @JavascriptInterface
+    public final void adaptiveWriting(String glyph, String summary) {
+        if ("kanji.html".equals(this.$requestPage) && adaptiveLevel != null
+            && adaptiveOwner.equals(currentAdaptiveOwner(this.this$0))
+            && adaptiveCredential.equals(MainActivity.access$getVault$p(this.this$0).read())
+            && (this.$requestPreview || (!adaptiveCredential.isEmpty()
+                && MainActivity.access$expiry(this.this$0, adaptiveLevel) > MainActivity.access$now(this.this$0)))) {
+            AdaptiveHistory.get(this.this$0).recordWriting(adaptiveOwner, adaptiveLevel, glyph, summary);
+        }
+    }
+
+    @JavascriptInterface
+    public final String adaptiveHistory()''')

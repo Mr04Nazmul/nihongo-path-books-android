@@ -1,6 +1,6 @@
-import { defaultPrior, observeSkill, emissions, informationGain, fitAbility } from './models.mjs';
+import { defaultPrior, observeSkill, emissions, informationGain, validateAbility } from './models.mjs';
 import { Rating, retentionAt, reviewCard } from './memory.mjs';
-import { optimizePlan } from './planning.mjs';
+import { optimizePlan, taskScore } from './planning.mjs';
 
 export function buildProfile(events) {
   const cards = new Map();
@@ -22,7 +22,7 @@ export function buildProfile(events) {
       history.push(event);
       responses.set(event.skill, history);
       // Fit on a bounded history after each block of scored opportunities.
-      const ability = history.length % 20 === 0 ? fitAbility(history.slice(-200)) : previous.ability;
+      const ability = history.length % 20 === 0 ? validateAbility(history.slice(-200)).ability : previous.ability;
       skills.set(event.skill, { ...updated, ability });
     }
   }
@@ -57,5 +57,13 @@ export function dailyStudyPlan(tasks, profile, graph, options) {
       exam: task.examAligned ? informationGain(skill.belief, likelihood) : 0,
     });
   }
-  return optimizePlan(candidates, seconds, maxLoad, weights);
+  // Bound the expensive frontier on lower-memory devices. Rank every
+  // feasible item first; keep up to 240 candidates for the Daily Study plan.
+  const feasible = candidates.filter(task => task.seconds <= seconds && task.load <= maxLoad);
+  if (feasible.length > 240) {
+    const score = task => taskScore(task, seconds, maxLoad, weights);
+    feasible.sort((a, b) => score(b) - score(a));
+    feasible.length = 240;
+  }
+  return optimizePlan(feasible, seconds, maxLoad, weights);
 }

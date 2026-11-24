@@ -1,6 +1,7 @@
 import { createEmptyCard, fsrs, Rating } from 'ts-fsrs';
 
-const scheduler = fsrs({ enable_fuzz: false });
+export const desiredRetention = 0.9;
+const scheduler = fsrs({ enable_fuzz: false, request_retention: desiredRetention });
 
 export function reviewCard(previous, reviewedAt, rating) {
   const date = new Date(reviewedAt);

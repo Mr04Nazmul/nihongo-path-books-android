@@ -1,10 +1,12 @@
 import { PrerequisiteGraph } from '../graph.mjs';
 
 const curated = {
+  N5: [82, 83, 84, 98, 100, 101].map(id => ['own-n5-grammar-0081', 'own-n5-grammar-' + String(id).padStart(4, '0')]),
   N3: [['own-n3-grammar-0001', 'own-n3-grammar-0002']],
   N4: [
     ['own-n4-grammar-0001', 'own-n4-grammar-0002'],
     ['own-n4-grammar-0002', 'own-n4-grammar-0003'],
+    ...[15, 33, 34, 40, 64, 67, 71, 99].map(id => ['own-n4-grammar-0001', 'own-n4-grammar-' + String(id).padStart(4, '0')]),
   ],
 };
 
@@ -44,7 +46,29 @@ export function curriculumGraphs(items, level, preview) {
   const hard = (curated[level] ?? []).map(edge => edge.map(id => prefix + id))
     .filter(edge => edge.every(id => ids.has(id)));
   return {
+    facts: new Map(items.filter(row => row.entry).map(row => [row.id, knowledgeFacts(row.entry)])),
     support: new PrerequisiteGraph([...ids], [...associations, ...hard]),
     required: new PrerequisiteGraph([...ids], hard),
+  };
+}
+
+
+// Source-backed prerequisite across levels. The existing level switch owns
+// entitlement, so this recommendation does not open protected material itself.
+export function earlierLevelLesson(level, itemId) {
+  if (level === 'N4' && itemId.endsWith(':own-n4-grammar-0001')) {
+    return { level: 'N5', section: 'grammar', label: 'V辞書形' };
+  }
+  return null;
+}
+
+export function knowledgeFacts(entry) {
+  const values = field => (Array.isArray(field) ? field : [field])
+    .filter(value => typeof value === 'string' && value.trim().length)
+    .map(normalized);
+  return {
+    readings: [...new Set([...values(entry.reading), ...values(entry.kunyomi), ...values(entry.onyomi)])],
+    meanings: [...new Set([...values(entry.meaning), ...values(entry.meaning_bn), ...values(entry.bn)])],
+    radicals: [...new Set([...values(entry.radical), ...values(entry.radicals)])],
   };
 }
