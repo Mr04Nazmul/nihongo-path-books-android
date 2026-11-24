@@ -55,7 +55,7 @@ export function fitStudySessions(times, start, end, decay = 1 / 6) {
     branchStep *= 0.75;
   }
   if (branching < 0.001) return null;
-  return { baseline, branching, decay, at: events.at(-1), excitation: trace + 1 };
+  return { baseline, branching, decay, at: events[events.length - 1], excitation: trace + 1 };
 }
 
 export function chooseReminder(model, slots, defaultSlot, { permitted, alreadyScheduled, asOf }) {

@@ -1,3 +1,4 @@
+import "./reader-compat.mjs";
 import { buildProfile, dailyStudyPlan } from '../session.mjs';
 import { selectQuestion } from '../models.mjs';
 import { curriculumGraphs, earlierLevelLesson } from './curriculum-graph.mjs';

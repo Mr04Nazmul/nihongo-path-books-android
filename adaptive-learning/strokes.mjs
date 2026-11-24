@@ -4,7 +4,7 @@ function resample(path, count = 24) {
   if (path.length < 2) return null;
   const lengths = [0];
   for (let i = 1; i < path.length; i++) lengths.push(lengths[i - 1] + distance(path[i - 1], path[i]));
-  const length = lengths.at(-1);
+  const length = lengths[lengths.length - 1];
   if (!Number.isFinite(length) || length <= 1e-6) return null;
   const result = [path[0]];
   let next = 1;
@@ -15,7 +15,7 @@ function resample(path, count = 24) {
     result.push(path[next - 1].map((coordinate, axis) =>
       coordinate + fraction * (path[next][axis] - coordinate)));
   }
-  return [...result, path.at(-1)];
+  return [...result, path[path.length - 1]];
 }
 
 // Both paths use normalized board coordinates. This preserves position, scale
