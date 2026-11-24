@@ -25,7 +25,7 @@ export function studyStrategy(event) {
   return 'meaning';
 }
 
-export function strategyPriorities(events, random = Math.random) {
+export function strategyPriorities(events, random = Math.random, minimumOutcomes = 0) {
   const evidence = new Map(['meaning', 'reading', 'reverse', 'mock']
     .map(strategy => [strategy, { successes: 0, failures: 0 }]));
   const previous = new Map();
@@ -37,5 +37,6 @@ export function strategyPriorities(events, random = Math.random) {
     }
     previous.set(event.item, event);
   }
+  if ([...evidence.values()].reduce((total, row) => total + row.successes + row.failures, 0) < minimumOutcomes) return new Map();
   return new Map([...evidence].map(([strategy, counts]) => [strategy, sampleLearningPriority(counts, random)]));
 }

@@ -1,3 +1,4 @@
+import { modelReadiness, validAttempt } from './activation.mjs';
 import { defaultPrior, observeSkill, emissions, informationGain, validateAbility } from './models.mjs';
 import { Rating, retentionAt, reviewCard } from './memory.mjs';
 import { optimizePlan, taskScore } from './planning.mjs';
@@ -7,20 +8,26 @@ function skillScope(skill) {
   return match ? match[1] : '';
 }
 
-export function buildProfile(events) {
+function createProfileAccumulator(protectColdStart) {
   const cards = new Map();
   const skills = new Map();
   const responses = new Map();
   const abilities = new Map();
   const seen = new Set();
-  const ordered = [...events].sort((a, b) => a.at - b.at || a.id.localeCompare(b.id));
-  for (const event of ordered) {
-    if (seen.has(event.id)) continue;
+  const counts = new Map();
+  let sessions = 0;
+  let answers = 0;
+  let lastAnswer = -Infinity;
+  function append(event) {
+    if (seen.has(event.id)) return;
     seen.add(event.id);
     if (event.item && event.rating != null) {
       cards.set(event.item, reviewCard(cards.get(event.item), event.at, event.rating));
     }
     if (typeof event.correct === 'boolean') {
+      if (event.at - lastAnswer >= 1800000) sessions++;
+      lastAnswer = event.at;
+      answers++;
       const scope = skillScope(event.skill);
       const previous = skills.get(event.skill) ?? { belief: defaultPrior };
       const ability = abilities.get(scope) ?? 0;
@@ -31,17 +38,56 @@ export function buildProfile(events) {
       responses.set(scope, history);
       // Estimate learner ability across questions in the same reader scope.
       // Evaluate only after each block and preserve the chronological holdout.
-      if (history.length % 20 === 0) abilities.set(scope, validateAbility(history.slice(-200)).ability);
+      if (history.length > 200) history.shift();
+      const scopeCount = (counts.get(scope) ?? 0) + 1;
+      counts.set(scope, scopeCount);
+      if ((!protectColdStart || modelReadiness(sessions, scopeCount).irt) && scopeCount % 20 === 0) {
+        abilities.set(scope, validateAbility(history).ability);
+      }
     }
   }
   function skillProfile(skill) {
     return {
-      ...(skills.get(skill) ?? { belief: defaultPrior, mastery: defaultPrior[3] }),
+      ...( (!protectColdStart || modelReadiness(sessions, answers).mastery ? skills.get(skill) : null)
+        ?? { belief: defaultPrior, mastery: defaultPrior[3] }),
       ability: abilities.get(skillScope(skill)) ?? 0,
     };
   }
-  for (const key of skills.keys()) skills.set(key, skillProfile(key));
-  return { cards, skills, skillProfile };
+  function current() {
+    const readiness = modelReadiness(sessions, answers);
+    return { cards, skills: protectColdStart && !readiness.mastery ? new Map() : skills,
+      skillProfile, readiness, sessions };
+  }
+  return { append, current };
+}
+
+function chronological(a, b) {
+  return a.at - b.at || a.id.localeCompare(b.id);
+}
+
+export function buildProfile(events) {
+  const accumulator = createProfileAccumulator(false);
+  for (const event of [...events].sort(chronological)) accumulator.append(event);
+  return accumulator.current();
+}
+
+// The reader owns one cache per account-bound reader. A sync backfill,
+// truncation or reordered history forces a full deterministic replay.
+export function createProfileCache() {
+  let previous = [];
+  let accumulator = createProfileAccumulator(true);
+  let cached;
+  return events => {
+    const ordered = events.filter(validAttempt).sort(chronological);
+    const prefix = previous.length <= ordered.length &&
+      previous.every((event, i) => event.id === ordered[i].id && event.at === ordered[i].at);
+    if (!prefix) accumulator = createProfileAccumulator(true);
+    if (prefix && cached && previous.length === ordered.length) return cached;
+    for (let i = prefix ? previous.length : 0; i < ordered.length; i++) accumulator.append(ordered[i]);
+    previous = ordered;
+    cached = accumulator.current();
+    return cached;
+  };
 }
 
 export function dailyStudyPlan(tasks, profile, graph, options) {

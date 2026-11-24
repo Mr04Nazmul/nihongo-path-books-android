@@ -1,5 +1,5 @@
 import "./reader-compat.mjs";
-import { buildProfile, dailyStudyPlan } from '../session.mjs';
+import { createProfileCache, dailyStudyPlan } from '../session.mjs';
 import { selectQuestion } from '../models.mjs';
 import { curriculumGraphs, earlierLevelLesson } from './curriculum-graph.mjs';
 import { chooseReminder, fitStudySessions, updateDifficulty } from '../pacing.mjs';
@@ -122,11 +122,14 @@ export function mount(data, level, preview, word, meaning, sakura) {
   let used = new Set();
   let remaining = 300;
   let pacing = coldPacing();
+  const profileFor = createProfileCache();
 
   function history() {
     const value = native.adaptiveHistory();
     if (!value) throw new Error('এই মুহূর্তে অনুশীলনের তথ্য পাওয়া যাচ্ছে না।');
-    return JSON.parse(value);
+    const events = JSON.parse(value);
+    if (!Array.isArray(events)) throw new Error('অনুশীলনের তথ্য পড়া যায়নি।');
+    return events;
   }
 
   function show(text) {
@@ -140,7 +143,9 @@ export function mount(data, level, preview, word, meaning, sakura) {
     let events;
     try { events = history(); }
     catch (error) { show(error.message); return; }
-    const profile = buildProfile(events);
+    let profile;
+    try { profile = profileFor(events); }
+    catch (error) { show('অনুশীলনের হিসাব এই মুহূর্তে পাওয়া যাচ্ছে না।'); return; }
     const at = Date.now();
     const candidates = items.filter(row => !used.has(row.id));
     let chosen;
@@ -160,10 +165,15 @@ export function mount(data, level, preview, word, meaning, sakura) {
         const last = evidence.get(row.id);
         return last ? { ...row, seconds: Math.max(5, Math.ceil(last.seconds)) } : row;
       });
-      const plan = dailyStudyPlan(estimated, profile, prerequisites, {
+      const mastery = new Map([...profile.skills].map(([id, state]) => [id, state.mastery]));
+      const accessible = new Set(prerequisites.order);
+      const plan = !profile.readiness.entropy
+        ? estimated.filter(row => row.seconds <= remaining &&
+          !prerequisites.weakPrerequisites(row.skill, mastery, accessible, 0.55).length)
+        : dailyStudyPlan(estimated, profile, prerequisites, {
         at, seconds: remaining, maxLoad: 16, weights, masteryThreshold: 0.55,
       });
-      const priorities = strategyPriorities(events);
+      const priorities = profile.readiness.phase === 'Cold Start' ? new Map() : strategyPriorities(events, Math.random, 12);
       const eligible = plan.flatMap(row => {
         const forward = { ...row, priority: priorities.get(row.mock ? 'mock' : 'meaning') };
         const variants = [forward];
@@ -176,7 +186,7 @@ export function mount(data, level, preview, word, meaning, sakura) {
         return variants;
       });
       const questionProfiles = new Map(eligible.map(question => [question.skill, profile.skillProfile(question.skill)]));
-      chosen = (selectQuestion(eligible, questionProfiles, { offset: pacing.output, radius: 0.2 }, 0.05) ||
+      chosen = !profile.readiness.entropy ? plan[0] : (selectQuestion(eligible, questionProfiles, { offset: pacing.output, radius: 0.2 }, 0.05) ||
         selectQuestion(eligible.filter(question => !question.reverse), questionProfiles))?.question;
     }
     if (!chosen) { show(mode === 'review' ? 'এখন কোনো রিভিউ বাকি নেই।' : 'এই সেশনে আর কোনো পাঠ বাকি নেই।'); return; }
@@ -199,7 +209,9 @@ export function mount(data, level, preview, word, meaning, sakura) {
       if (!used.size) window.setTimeout(() => trainReminder(native), 0);
       used.add(chosen.item);
       remaining -= seconds;
-      pacing = updateDifficulty(pacing, correct, Math.min(120, seconds), settings);
+      if (profile.readiness.pacing && !chosen.mock) {
+        pacing = updateDifficulty(pacing, correct, Math.min(120, seconds), settings);
+      }
       show(correct ? 'সঠিক' : 'সঠিক উত্তর · ' + correctAnswer);
       if (chosen.mock && chosen.explanation) show(chosen.explanation);
       output.appendChild(button('পরেরটি', () => next(mode)));
@@ -214,7 +226,7 @@ export function mount(data, level, preview, word, meaning, sakura) {
       output.textContent = '';
       try {
         const events = history();
-        const state = buildProfile(events);
+        const state = profileFor(events);
         const at = Date.now();
         const due = [...state.cards.values()].filter(card => card.due.getTime() <= at).length;
         show('অনুশীলন ' + events.length + ' · রিভিউ বাকি ' + due);
