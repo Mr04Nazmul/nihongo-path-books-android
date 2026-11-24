@@ -19,7 +19,7 @@ Cross-account isolation, duplicate pushes, cursors, cascading deletion and
 service-only RPC permission passed in a PGlite integration test. Production
 sync is off. No migration or Edge updates were deployed.
 
-13 Node tests passed, including the reader action-to-bridge flow and
+14 Node tests passed, including the reader action-to-bridge flow and
 the PostgreSQL migration integration. AdaptiveHistory independently
 compiled against Android API 36. The synthetic desktop benchmark ran
 4,800 reviews and 240 candidates. Median replay was 25.4 ms and median
@@ -30,5 +30,12 @@ clauses across N5–N1. Twelve formations recurred. The checked plain-clause
 rule reduced total description length from 192861 to 192359 bits. No
 grammar was rewritten. Automatic curriculum relationships and three
 source-aligned hard prerequisite edges are wired into the reader.
-Cross-level prerequisite curation, Sakura reuse clearance, production sync
+Cross-level prerequisite curation, remaining Sakura question review, production sync
 and Android device end-to-end verification remain pending.
+
+The user-authorized preview includes 17 reviewed stand-alone questions from
+the first free N5 Sakura paper, with original answer keys and reading
+passages. They are used only in Adaptive Practice. The public source
+branch includes the import tool; the question data is in the supplied
+Android source archive. The source archive records NihongoMock provenance.
+No additional Sakura papers were imported.

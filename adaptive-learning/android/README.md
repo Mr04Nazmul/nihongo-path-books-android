@@ -45,7 +45,12 @@ all five level readers. Three source-matched grammar prerequisites are
 enforced. Relationships are restricted to the currently authorized lesson
 payload, and full cross-level prerequisite curation remains pending.
 
-All 17 reviewed Sakura samples in the available archive trace to
-NihongoMock. The archive records language review but no redistribution
-grant. The reader uses original practice questions from its own curriculum
-data. Sakura papers and the production database are unchanged.
+The owner-authorized Android source archive includes 17 language-reviewed
+stand-alone questions from the first free N5 Sakura paper with their source
+provenance. It imports no other paper. To regenerate the app asset privately,
+run:
+```sh
+python3 android/import-sakura.py /path/to/Sakura-JLPT-Question-Audit.zip   /path/to/android-source/app/src/main/assets/reader/sakura-adaptive.json
+```
+The existing Sakura paper is untouched. Adapted question history is scoped
+by the active Books account and uses the same local review and sync route.

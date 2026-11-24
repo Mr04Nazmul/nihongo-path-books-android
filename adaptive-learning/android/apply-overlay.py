@@ -20,7 +20,7 @@ shutil.copy2(overlay / 'adaptive-reader.js', reader / 'adaptive-reader.js')
 replace(reader / 'study.html', '</head>', '<script src="adaptive-reader.js"></script></head>')
 replace(reader / 'study.html', '  migrateAliases();\n  render();\n}).catch', '''  migrateAliases();
   render();
-  if (window.AdaptiveReader) window.AdaptiveReader.mount(data, level, preview, mainWord, meaning);
+  if (window.AdaptiveReader) window.AdaptiveReader.mountFromAssets(data, level, preview, mainWord, meaning);
 }).catch''')
 replace(reader / 'kanji.html', '<script src="practice.js">', '<script src="adaptive-reader.js"></script><script src="practice.js">')
 replace(java / 'MainActivity.java', 'new MainActivity$openReader$4(this, requestPreview, requestPage)', 'new MainActivity$openReader$4(this, requestPreview, requestPage, level)')

@@ -54,7 +54,7 @@ final class AdaptiveHistory extends SQLiteOpenHelper {
             event.put("id", id).put("at", at).put("item", item).put("skill", item);
             event.put("correct", correct).put("rating", correct ? 3 : 1);
             String variant = input.optString("variant");
-            double difficulty = "reading".equals(variant) ? 0.2 : "reverse".equals(variant) ? 0.35 : 0;
+            double difficulty = ("reading".equals(variant) || "mock".equals(variant)) ? 0.2 : "reverse".equals(variant) ? 0.35 : 0;
             event.put("difficulty", difficulty).put("guess", 0.25).put("slip", 0.05);
             event.put("seconds", Math.max(1, Math.min(120, seconds)));
             ContentValues values = new ContentValues();

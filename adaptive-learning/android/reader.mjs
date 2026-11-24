@@ -83,7 +83,7 @@ function trainReminder(native) {
   }
 }
 
-function mount(data, level, preview, word, meaning) {
+export function mount(data, level, preview, word, meaning, sakura) {
   const native = window.StudyNative;
   if (!native || !native.adaptiveHistory) return;
   const rows = lessons(data, level, preview, word, meaning);
@@ -99,6 +99,15 @@ function mount(data, level, preview, word, meaning) {
   const readings = new Set(rows.map(row => row.reading).filter(Boolean));
   const items = rows.filter(row => groups.get(row.kind).meanings.size >= 4)
     .map(row => ({ ...row, examAligned: !!row.reading && readings.size >= 4 }));
+  if (sakura?.level === level && Array.isArray(sakura.questions)) {
+    for (const row of sakura.questions) {
+      const prefix = level + ':' + (preview ? 'preview:' : 'full:');
+      const id = prefix + row.kind + ':sakura-' + row.id;
+      items.push({ ...row, id, item: id, skill: id, answer: row.choices[row.answer],
+        mock: true, guess: 0.25, slip: 0.05, difficulty: 0.2, accessible: true,
+        examAligned: true, seconds: row.passage ? 60 : 25, load: row.passage ? 2 : 1 });
+    }
+  }
   if (!items.length) return;
   const { support: graph, required: prerequisites } = curriculumGraphs(items, level, preview);
   const panel = document.createElement('section');
@@ -168,6 +177,7 @@ function mount(data, level, preview, word, meaning) {
         const priority = spacedEvidence.has(row.id) ? sampleLearningPriority(spacedEvidence.get(row.id)) : 0.5;
         const forward = { ...row, priority };
         const variants = [forward];
+        if (row.mock) return variants;
         const group = groups.get(row.kind);
         if (row.examAligned) variants.push({ ...forward, id: row.id + ':reading', readingQuestion: true, difficulty: 0.2 });
         if (row.kind !== 'grammar' && group.words.size >= 4 && group.byMeaning.get(row.answer).size === 1) {
@@ -181,7 +191,9 @@ function mount(data, level, preview, word, meaning) {
     if (!chosen) { show(mode === 'review' ? 'এখন কোনো রিভিউ বাকি নেই।' : 'এই সেশনে আর কোনো পাঠ বাকি নেই।'); return; }
     const group = groups.get(chosen.kind);
     const correctAnswer = chosen.readingQuestion ? chosen.reading : chosen.reverse ? chosen.prompt : chosen.answer;
-    const possible = chosen.readingQuestion ? readings : chosen.reverse ? group.words : group.meanings;
+    const possible = chosen.mock ? chosen.choices : chosen.readingQuestion ? readings : chosen.reverse ? group.words : group.meanings;
+    if (chosen.mock && chosen.instruction) show(chosen.instruction);
+    if (chosen.mock && chosen.passage) show(chosen.passage);
     show(chosen.readingQuestion ? '読み方 · ' + chosen.prompt : chosen.reverse ? chosen.answer : chosen.prompt);
     const distractors = shuffle([...possible].filter(value => value !== correctAnswer)).slice(0, 3);
     const started = performance.now();
@@ -189,7 +201,7 @@ function mount(data, level, preview, word, meaning) {
       for (const option of options) option.disabled = true;
       const correct = value === correctAnswer;
       const seconds = Math.max(1, Math.round((performance.now() - started) / 1000));
-      if (!native.recordAdaptiveAnswer(JSON.stringify({ item: chosen.item, correct, seconds, variant: chosen.readingQuestion ? "reading" : chosen.reverse ? "reverse" : "meaning" }))) {
+      if (!native.recordAdaptiveAnswer(JSON.stringify({ item: chosen.item, correct, seconds, variant: chosen.mock ? "mock" : chosen.readingQuestion ? "reading" : chosen.reverse ? "reverse" : "meaning" }))) {
         show('এই উত্তরটি সেভ করা যায়নি।');
         return;
       }
@@ -198,6 +210,7 @@ function mount(data, level, preview, word, meaning) {
       remaining -= seconds;
       pacing = updateDifficulty(pacing, correct, Math.min(120, seconds), settings);
       show(correct ? 'সঠিক' : 'সঠিক উত্তর · ' + correctAnswer);
+      if (chosen.mock && chosen.explanation) show(chosen.explanation);
       output.appendChild(button('পরেরটি', () => next(mode)));
     }));
     output.append(...options);
@@ -228,4 +241,17 @@ function mount(data, level, preview, word, meaning) {
   );
 }
 
-window.AdaptiveReader = { mount, compareWriting };
+async function mountFromAssets(data, level, preview, word, meaning) {
+  let sakura;
+  if (level === 'N5') {
+    try {
+      const response = await fetch('sakura-adaptive.json');
+      if (response.ok) sakura = await response.json();
+    } catch (_) {
+      // Some source builds include only the Books curriculum.
+    }
+  }
+  mount(data, level, preview, word, meaning, sakura);
+}
+
+window.AdaptiveReader = { mount, mountFromAssets, compareWriting };
