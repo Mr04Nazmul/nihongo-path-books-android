@@ -52,6 +52,12 @@ struct AccountView: View {
                 }
                 LabeledContent("শেখা হয়েছে", value: store.learned.count.formatted())
                 LabeledContent("বুকমার্ক", value: store.saved.count.formatted())
+                NavigationLink { AppearanceSettingsView() } label: {
+                    Label("থিম ও রং", systemImage: "circle.lefthalf.filled")
+                }
+                NavigationLink { ReadingSettingsView() } label: {
+                    Label("পড়ার পছন্দ", systemImage: "textformat.size")
+                }
             }
             Section("পড়ার অভ্যাস") {
                 Button("প্রতিদিন পড়ার reminder") { store.run { try await store.remindDaily(); store.message = "Reminder চালু হয়েছে।" } }
@@ -109,5 +115,46 @@ struct LicenseView: View {
             Text("Nihongo Path lesson previews and logo reused from the owner’s existing app assets. Preview data is bundled; protected full books are fetched only after existing server entitlement checks.")
             Text(licenseText).font(.footnote)
         }.padding() }.navigationTitle("Licences")
+    }
+}
+
+private struct AppearanceSettingsView: View {
+    @AppStorage("ios.appearance.mode") private var mode = "system"
+    @AppStorage("ios.appearance.accent") private var accent = "sakura"
+
+    var body: some View {
+        Form {
+            Picker("থিম", selection: $mode) {
+                Text("সিস্টেম").tag("system")
+                Text("লাইট").tag("light")
+                Text("ডার্ক").tag("dark")
+            }.pickerStyle(.inline)
+            Picker("রং", selection: $accent) {
+                Text("সাকুরা গোলাপি").tag("sakura")
+                Text("সমুদ্র নীল").tag("ocean")
+                Text("বন সবুজ").tag("forest")
+            }.pickerStyle(.inline)
+        }.navigationTitle("থিম ও রং")
+    }
+}
+
+private struct ReadingSettingsView: View {
+    @EnvironmentObject private var store: StudyStore
+    @AppStorage("ios.reader.textSize") private var textSize = "standard"
+    @AppStorage("ios.reader.speechRate") private var speechRate = 0.42
+
+    var body: some View {
+        Form {
+            Picker("লেখার আকার", selection: $textSize) {
+                Text("ছোট").tag("small")
+                Text("সাধারণ").tag("standard")
+                Text("বড়").tag("large")
+            }.pickerStyle(.inline)
+            Section("উচ্চারণের গতি") {
+                Slider(value: $speechRate, in: 0.25...0.60, step: 0.01)
+                    .accessibilityLabel("উচ্চারণের গতি")
+                Button("উচ্চারণ শুনুন") { store.speak("こんにちは") }
+            }
+        }.navigationTitle("পড়ার পছন্দ")
     }
 }
