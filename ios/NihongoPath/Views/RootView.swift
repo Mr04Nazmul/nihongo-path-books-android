@@ -30,6 +30,12 @@ struct HomeView: View {
                         Label(subject.title, systemImage: subject.icon).font(.headline).padding(22).frame(maxWidth: .infinity, alignment: .leading).background(Color.pink.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
                     }.buttonStyle(.plain)
                 }
+                NavigationLink { AdaptivePracticeView() } label: {
+                    Label("Smart Study", systemImage: "brain.head.profile")
+                        .font(.headline).padding(22)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.pink.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
+                }.buttonStyle(.plain)
                 NavigationLink { MockExamView() } label: {
                     Label("JLPT Mock Test", systemImage: "checklist")
                         .font(.headline).padding(22)
