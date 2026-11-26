@@ -33,10 +33,15 @@ struct AccountView: View {
                     Button(register ? "অ্যাকাউন্ট তৈরি করুন" : "লগইন") {
                         store.run { defer { password = "" }; try await store.login(email:email,password:password,name:name,register:register) }
                     }.disabled(store.busy)
+                    if !register {
+                        Button { store.run { try await store.signInWithGoogle() } } label: {
+                            Label("Google দিয়ে লগইন", systemImage: "person.crop.circle")
+                        }.disabled(store.busy)
+                    }
                     if store.busy { ProgressView() }
                 } header: {
                     Text("Sign in · লগইন")
-                } footer: { Text("অ্যাকাউন্ট ছাড়াই preview পড়তে পারবেন। আগে Google দিয়ে account খুললে email/password login কাজ নাও করতে পারে; support-এ যোগাযোগ করুন। iOS social login এখনো উপলব্ধ নয়।") }
+                } footer: { Text("অ্যাকাউন্ট ছাড়াই preview পড়তে পারবেন। আগে Google দিয়ে account খুললে একই Google account ব্যবহার করুন।") }
             }
             Section("পড়ার অভ্যাস") {
                 Button("প্রতিদিন সন্ধ্যা ৭টায় reminder") { store.run { try await store.remindDaily(); store.message = "Reminder চালু হয়েছে।" } }

@@ -2,6 +2,10 @@ import Foundation
 import SwiftUI
 import AVFoundation
 import UserNotifications
+import AuthenticationServices
+import CryptoKit
+import Security
+import UIKit
 
 @MainActor final class StudyStore: ObservableObject {
     @Published var snapshot: AccountSnapshot?
@@ -73,6 +77,63 @@ import UserNotifications
         let result: SessionResponse = try await api.request(register ? "/auth/register" : "/auth/login", method: "POST", body: ["email":clean,"password":password,"name":name,"referralCode":""])
         try await accept(result)
     }
+    func signInWithGoogle() async throws {
+        guard let window = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .filter({ $0.activationState == .foregroundActive })
+            .flatMap({ $0.windows })
+            .first(where: { $0.isKeyWindow }) else {
+            throw APIError(status: 0, message: "Google লগইন খুলতে অ্যাপে ফিরে আবার চেষ্টা করুন।")
+        }
+
+        var random = Data(count: 32)
+        let status = random.withUnsafeMutableBytes { buffer in
+            SecRandomCopyBytes(kSecRandomDefault, buffer.count, buffer.baseAddress!)
+        }
+        guard status == errSecSuccess else {
+            throw APIError(status: 0, message: "Google লগইন শুরু করা যায়নি।")
+        }
+
+        let verifier = Self.base64URL(random)
+        let challenge = Self.base64URL(Data(SHA256.hash(data: Data(verifier.utf8))))
+        let flow = UUID().uuidString.lowercased()
+        let start: OAuthStart = try await api.request("/auth/google/start", method: "POST",
+            body: ["challenge": challenge, "flow": flow])
+        guard start.url.scheme == "https", start.url.host == APIClient.base.host,
+              start.url.user == nil, start.url.password == nil, start.url.port == nil,
+              start.url.path == "/auth/v1/authorize" else {
+            throw APIError(status: 0, message: "Google লগইন ঠিকানা যাচাই করা যায়নি।")
+        }
+
+        let started = ProcessInfo.processInfo.systemUptime
+        let callback: URL
+        do {
+            callback = try await GoogleSignInWindow(window: window).open(start.url)
+        } catch let error as ASWebAuthenticationSessionError where error.code == .canceledLogin {
+            return
+        }
+        let query = URLComponents(url: callback, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let flows = query.filter { $0.name == "flow" }
+        let codes = query.filter { $0.name == "code" }
+        guard ProcessInfo.processInfo.systemUptime - started <= 600,
+              callback.scheme == "nihongopathbooks", callback.host == "auth",
+              callback.path == "/callback", flows.count == 1, flows.first?.value == flow,
+              codes.count == 1, let code = codes.first?.value, !code.isEmpty else {
+            throw APIError(status: 0, message: "Google লগইন শেষ হয়নি। আবার চেষ্টা করুন।")
+        }
+
+        let result: SessionResponse = try await api.request("/auth/exchange", method: "POST",
+            body: ["code": code, "verifier": verifier])
+        try await accept(result)
+    }
+
+    private static func base64URL(_ data: Data) -> String {
+        data.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+
     func accept(_ result: SessionResponse) async throws {
         try SessionVault.save(result.token); token = result.token
         do { try await refresh() } catch { localSignOut(); throw error }
@@ -103,5 +164,38 @@ import UserNotifications
     func run(_ action: @escaping () async throws -> Void) {
         guard !busy else { return }; busy = true
         Task { defer { busy = false }; do { try await action() } catch { message = error.localizedDescription } }
+    }
+}
+
+
+@MainActor
+private final class GoogleSignInWindow: NSObject, ASWebAuthenticationPresentationContextProviding {
+    private let window: UIWindow
+    private var session: ASWebAuthenticationSession?
+
+    init(window: UIWindow) {
+        self.window = window
+    }
+
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        window
+    }
+
+    func open(_ url: URL) async throws -> URL {
+        defer { session = nil }
+        return try await withCheckedThrowingContinuation { continuation in
+            let browser = ASWebAuthenticationSession(url: url, callbackURLScheme: "nihongopathbooks") { callback, error in
+                if let callback {
+                    continuation.resume(returning: callback)
+                } else {
+                    continuation.resume(throwing: error ?? APIError(status: 0, message: "Google লগইন শেষ হয়নি।"))
+                }
+            }
+            browser.presentationContextProvider = self
+            session = browser
+            if !browser.start() {
+                continuation.resume(throwing: APIError(status: 0, message: "Google লগইন খোলা যায়নি।"))
+            }
+        }
     }
 }

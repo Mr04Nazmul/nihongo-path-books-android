@@ -13,7 +13,7 @@ Native SwiftUI application targeting iOS16+, iPhone and iPad. Bundle ID online.d
 ## Not yet enabled / blocking upload
 
 - No Apple Developer membership, registered app identifier, signing certificate or provisioning profile is available. No App Store Connect app or TestFlight upload exists. Apple membership normally costs99USD/year; no purchase is authorised or performed. Uptodown iOS catalog listing does not provide Apple signing.
-- iOS Google/Apple sign-in not integrated. Existing Google-only users may not have an email password. Existing Android Google Login is unchanged. Adding social login needs equivalent privacy-preserving login under App Review4.8 and verified backend support; no production auth change is made.
+- Google sign-in uses a native AuthenticationServices session and the existing Books Supabase PKCE routes. Live sign-in and eligibility for store distribution still require verification.
 - iOS AdMob app/unit and consent messages are not configured. The Android unit is not reused. This edition does not load ads, issue rewards or debit credits. Existing active entitlements can be read. Ads-only monetisation parity remains a release blocker; no claim of full access or unlimited free books.
 - Listening/mock tests are not included because the current1.19.3 production build's verified feature set is vocabulary/grammar/kanji. Historical older-main listening source is not treated as current iOS parity.
 - Privacy policy must be updated for iOS-specific behaviour before submission; current shared policy still mentions Android and ads. Review shared profile deletion and required-reason API privacy declarations against actual final release.
@@ -33,3 +33,5 @@ https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds
 https://developer.apple.com/app-store/review/guidelines/
 https://developers.google.com/admob/ios/quick-start
 https://developers.google.com/admob/ios/ssv
+
+The 1.20.3 development branch also compiles the unsigned iPhone Release target and validates a temporary IPA in CI. The check uses the native development baseline until Android feature parity and physical-device signing are verified.
