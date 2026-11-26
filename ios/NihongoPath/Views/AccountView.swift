@@ -44,7 +44,7 @@ struct AccountView: View {
                 } footer: { Text("অ্যাকাউন্ট ছাড়াই preview পড়তে পারবেন। আগে Google দিয়ে account খুললে একই Google account ব্যবহার করুন।") }
             }
             Section("পড়ার অভ্যাস") {
-                Button("প্রতিদিন সন্ধ্যা ৭টায় reminder") { store.run { try await store.remindDaily(); store.message = "Reminder চালু হয়েছে।" } }
+                Button("প্রতিদিন পড়ার reminder") { store.run { try await store.remindDaily(); store.message = "Reminder চালু হয়েছে।" } }
                 Button("Reminder বন্ধ করুন") { store.cancelReminder(); store.message = "Reminder বন্ধ হয়েছে।" }
             }
             Section("সহায়তা ও গোপনীয়তা") {

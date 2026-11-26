@@ -3,6 +3,28 @@ import { createProfileCache, dailyStudyPlan } from "../../../adaptive-learning/s
 import { curriculumGraphs } from "../../../adaptive-learning/android/curriculum-graph.mjs";
 import { selectQuestion } from "../../../adaptive-learning/models.mjs";
 import { strategyPriorities } from "../../../adaptive-learning/exploration.mjs";
+import { assessWriting } from "../../../adaptive-learning/strokes.mjs";
+import { calculateReaderReminder } from "../../../adaptive-learning/android/reminder-worker.mjs";
+import { svgPathProperties } from "svg-path-properties";
+
+export function handwritingFeedback(request) {
+    const { actual, paths } = JSON.parse(request);
+    const reference = paths.map(path => {
+        const curve = new svgPathProperties(path);
+        const length = curve.getTotalLength();
+        return Array.from({ length: 24 }, (_, index) => {
+            const { x, y } = curve.getPointAtLength(length * index / 23);
+            return [x / 109, y / 109];
+        });
+    });
+    return JSON.stringify(assessWriting(actual, reference));
+}
+
+export function nextReminder(request, now) {
+    const history = JSON.parse(request).map(event => event.at).sort((first, second) => first - second);
+    const sessions = history.filter((at, index) => index === 0 || at - history[index - 1] >= 1800000);
+    return sessions.length >= 20 ? calculateReaderReminder(sessions, now) : 0;
+}
 
 export function selectPractice(request) {
     const { events, items, level, preview, review, used, now, remaining } = JSON.parse(request);

@@ -27,6 +27,7 @@ targets:
       - path: Resources/AdaptiveEngine.js
         buildPhase: resources
       - path: Resources/srs-kit-BSD-3-Clause.txt
+      - path: Resources/svg-path-properties-LICENSE.txt
       - path: Resources/ts-fsrs-MIT.txt
       - path: Resources/KANJIVG-LICENSE.txt
       - path: Resources/PrivacyInfo.xcprivacy

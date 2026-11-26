@@ -123,7 +123,6 @@ struct EntryView: View {
     let subject: Subject
     let protectedContent: Bool
     @State private var valid = true
-    @State private var canvasReset = UUID()
     @Environment(\.scenePhase) private var scenePhase
     private let clock = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
     var body: some View {
@@ -142,10 +141,7 @@ struct EntryView: View {
                     if let explanation = entry.explanation { Text("ব্যবহার ও ব্যাখ্যা").font(.headline); Text(explanation) }
                     if subject == .kanji {
                         Text("音読み: " + (entry.onyomi ?? []).joined(separator:"・")); Text("訓読み: " + (entry.kunyomi ?? []).joined(separator:"・"))
-                        StrokeView(character: entry.character ?? entry.title, level: level, protectedContent: protectedContent).frame(height: 280)
-                        Text("লেখার অনুশীলন").font(.headline)
-                        DrawingBoard().id(canvasReset).frame(height: 280).background(Color.pink.opacity(0.04)).clipShape(RoundedRectangle(cornerRadius:16))
-                        Button("বোর্ড মুছুন", role: .destructive) { canvasReset = UUID() }
+                        StrokeView(character: entry.character ?? entry.title, level: level, protectedContent: protectedContent)
                     }
                     ForEach(Array((entry.examples ?? []).enumerated()), id: \.offset) { _, example in
                         VStack(alignment: .leading, spacing: 5) { Text(example.japanese).font(.title3); Text(example.reading ?? "").foregroundStyle(.secondary); Text(example.translation) }.padding().frame(maxWidth:.infinity,alignment:.leading).background(Color.pink.opacity(0.06),in:RoundedRectangle(cornerRadius:12))

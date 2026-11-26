@@ -60,7 +60,6 @@ struct AdaptivePracticeView: View {
     @State private var events: [PracticeEvent] = []
     @State private var items: [PracticeItem] = []
     @State private var seen: Set<String> = []
-    @State private var context: JSContext?
     @State private var review = false
     @State private var preview = true
     @State private var owner = ""
@@ -151,15 +150,6 @@ struct AdaptivePracticeView: View {
             if let history = UserDefaults.standard.data(forKey: historyKey) {
                 events = try JSONDecoder().decode([PracticeEvent].self, from: history)
             }
-            if context == nil {
-                guard let path = Bundle.main.url(forResource: "AdaptiveEngine", withExtension: "js"),
-                      let js = JSContext() else {
-                    sessionMessage = "Smart Study চালু করা যায়নি।"
-                    return
-                }
-                js.evaluateScript(try String(contentsOf: path, encoding: .utf8))
-                context = js
-            }
             advance()
         } catch {
             sessionMessage = error.localizedDescription
@@ -170,12 +160,11 @@ struct AdaptivePracticeView: View {
         question = nil
         selection = nil
         guard canShow else { clear(); return }
-        guard let engine = context?.objectForKeyedSubscript("NihongoPractice"),
-              let request = try? JSONEncoder().encode(PracticeRequest(events: events, items: items,
+        guard let request = try? JSONEncoder().encode(PracticeRequest(events: events, items: items,
                   level: level, preview: preview, review: review, used: seen,
                   now: Date().timeIntervalSince1970 * 1000, remaining: remaining)),
               let input = String(data: request, encoding: .utf8),
-              let result = engine.invokeMethod("selectPractice", withArguments: [input]),
+              let result = AdaptiveScript.call("selectPractice", arguments: [input]),
               !result.isUndefined else {
             sessionMessage = "অনুশীলনের হিসাব এই মুহূর্তে পাওয়া যাচ্ছে না।"
             return
@@ -213,5 +202,6 @@ struct AdaptivePracticeView: View {
         seen.insert(item.id)
         remaining -= Int(seconds.rounded(.up))
         selection = choice
+        Task { try? await store.refreshAdaptiveReminder() }
     }
 }

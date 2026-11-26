@@ -10,12 +10,12 @@ Native SwiftUI application targeting iOS16+, iPhone and iPad. Bundle ID online.d
 - Existing app-data deletion endpoint with explicit warning that shared Android Books profile/access/credits are also deleted, while shared sign-in identity is preserved. No deletion, registration, login or reward transaction was executed by the agent.
 - Optional on-device daily notification at19:00 only after user authorisation. No microphone/camera/location permission. Native navigation supports Dynamic Type and system light/dark appearance.
 
-- Native Smart Study and Smart Review reuse the Android scheduler and planner through JavaScriptCore. Attempts stay on-device and are scoped to the Books account or guest. Protected lesson text is held in memory. Handwriting DTW, adaptive Hawkes notifications and production MDL evaluation are outside this integration.
+- Native Smart Study and Smart Review reuse the Android scheduler and planner through JavaScriptCore. Attempts stay on-device and are scoped to the Books account or guest. Protected lesson text is held in memory. Kanji handwriting uses the shared DTW code. Opt-in daily reminders use the shared Hawkes scheduler when sufficient history is available. Production MDL evaluation is still outstanding.
 
-To rebuild the committed JavaScript resource, extract the `adaptive-learning` directory from commit `e5780b44e59e1789f83ea1df0d0e12ad8d3dff53` into the checkout root, and run `npm ci` in that directory. From the checkout root run:
+To rebuild the committed JavaScript resource, extract the `adaptive-learning` directory from commit `e5780b44e59e1789f83ea1df0d0e12ad8d3dff53` into the checkout root, and run `npm ci` in that directory and in `android-app/backend`. From the checkout root run:
 
 ```sh
-npx esbuild@0.28.2 ios/NihongoPath/Adaptive/engine.mjs --bundle --format=iife --global-name=NihongoPractice --target=safari16 --minify --legal-comments=eof --outfile=ios/NihongoPath/Resources/AdaptiveEngine.js
+NODE_PATH="$PWD/android-app/backend/node_modules" npx esbuild@0.28.2 ios/NihongoPath/Adaptive/engine.mjs --bundle --format=iife --global-name=NihongoPractice --target=safari16 --minify --legal-comments=eof --outfile=ios/NihongoPath/Resources/AdaptiveEngine.js
 ```
 
 ## Not yet enabled / blocking upload

@@ -155,11 +155,40 @@ import UIKit
     func remindDaily() async throws {
         let center = UNUserNotificationCenter.current()
         guard try await center.requestAuthorization(options: [.alert,.sound]) else { throw APIError(status: 0, message: "Notifications বন্ধ আছে। Settings থেকে চালু করতে পারবেন।") }
-        let content = UNMutableNotificationContent(); content.title = "Nihongo Path"; content.body = "আজ একটু জাপানি চর্চা করুন · 日本語を勉強しましょう"; content.sound = .default
-        var date = DateComponents(); date.hour = 19; date.minute = 0
-        let request = UNNotificationRequest(identifier: "nihongo-daily", content: content, trigger: UNCalendarNotificationTrigger(dateMatching: date, repeats: true))
-        try await center.add(request)
+        try await scheduleReminder(hour: adaptiveReminderHour() ?? 19)
     }
+
+    func refreshAdaptiveReminder() async throws {
+        let center = UNUserNotificationCenter.current()
+        guard await center.pendingNotificationRequests().contains(where: { $0.identifier == "nihongo-daily" }) else { return }
+        let day = Calendar.current.startOfDay(for: Date())
+        guard defaults.object(forKey: "ios.adaptive.reminderDay") as? Date != day,
+              let hour = adaptiveReminderHour(),
+              Calendar.current.component(.hour, from: Date()) >= hour else { return }
+        try await scheduleReminder(hour: hour)
+        defaults.set(day, forKey: "ios.adaptive.reminderDay")
+    }
+
+    private func adaptiveReminderHour() -> Int? {
+        let account = snapshot?.user.id ?? "guest"
+        guard let data = defaults.data(forKey: "ios.adaptive." + account),
+              let history = String(data: data, encoding: .utf8),
+              let result = AdaptiveScript.call("nextReminder", arguments: [history, Date().timeIntervalSince1970 * 1000]),
+              result.isNumber, result.toDouble() > 0 else { return nil }
+        return Calendar.current.component(.hour, from: Date(timeIntervalSince1970: result.toDouble() / 1000))
+    }
+
+    private func scheduleReminder(hour: Int) async throws {
+        let content = UNMutableNotificationContent()
+        content.title = "Nihongo Path"
+        content.body = "আজ একটু জাপানি চর্চা করুন · 日本語を勉強しましょう"
+        content.sound = .default
+        let time = DateComponents(hour: hour, minute: 0)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: time, repeats: true)
+        let request = UNNotificationRequest(identifier: "nihongo-daily", content: content, trigger: trigger)
+        try await UNUserNotificationCenter.current().add(request)
+    }
+
     func cancelReminder() { UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["nihongo-daily"]) }
     func run(_ action: @escaping () async throws -> Void) {
         guard !busy else { return }; busy = true
