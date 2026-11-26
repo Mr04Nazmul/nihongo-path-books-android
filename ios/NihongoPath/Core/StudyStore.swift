@@ -18,6 +18,13 @@ import UIKit
     let speech = AVSpeechSynthesizer()
     private var snapshotUptime: TimeInterval = 0
     private var snapshotServerTime: Date?
+    private struct ContentKey: Hashable {
+        let account: String
+        let level: String
+        let subject: Subject
+    }
+
+    private var openedLessons: [ContentKey: [StudyEntry]] = [:]
     private let defaults: UserDefaults
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -58,12 +65,42 @@ import UIKit
     }
     func fetchEntries(level: String, subject: Subject) async throws -> [StudyEntry] {
         guard StudyLevel.valid(level) else { throw APIError(status: 0, message: "Invalid level") }
-        // Never persist protected curriculum. The server remains the source of entitlement decisions.
-        guard hasAccess(level) else { return try preview(level: level, subject: subject) }
-        if subject == .kanji {
-            let c: KanjiCatalogue = try await api.request("/content/kanji/" + level.lowercased() + ".json", token: token); return c.entries
+        guard hasAccess(level), let account = snapshot?.user.id else {
+            openedLessons = openedLessons.filter { $0.key.level != level }
+            return try preview(level: level, subject: subject)
         }
-        let l: Lessons = try await api.request("/content/data/lessons-" + level.lowercased() + ".json", token: token); return l.entries(subject)
+
+        let key = ContentKey(account: account, level: level, subject: subject)
+        let sessionToken = token
+        do {
+            let result: [StudyEntry]
+            if subject == .kanji {
+                let catalogue: KanjiCatalogue = try await api.request(
+                    "/content/kanji/" + level.lowercased() + ".json", token: sessionToken)
+                result = catalogue.entries
+            } else {
+                let lessons: Lessons = try await api.request(
+                    "/content/data/lessons-" + level.lowercased() + ".json", token: sessionToken)
+                result = lessons.entries(subject)
+            }
+            try Task.checkCancellation()
+            guard sessionToken == token, snapshot?.user.id == account, hasAccess(level) else {
+                throw CancellationError()
+            }
+            openedLessons[key] = result
+            return result
+        } catch let error as URLError {
+            let offlineCodes: [URLError.Code] = [.notConnectedToInternet, .networkConnectionLost, .timedOut,
+                                                .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed, .dataNotAllowed]
+            try Task.checkCancellation()
+            guard offlineCodes.contains(error.code), sessionToken == token, snapshot?.user.id == account,
+                  hasAccess(level), let cached = openedLessons[key] else { throw error }
+            return cached
+        } catch let error as APIError where error.status == 401 || error.status == 403 {
+            openedLessons = openedLessons.filter { $0.key.account != account || $0.key.level != level }
+            if error.status == 401 && sessionToken == token { localSignOut() }
+            throw error
+        }
     }
     func refresh() async throws {
         guard !token.isEmpty else { return }
@@ -144,6 +181,7 @@ import UIKit
         do { try await refresh() } catch { localSignOut(); throw error }
     }
     func localSignOut() {
+        openedLessons.removeAll()
         token = ""; snapshot = nil; snapshotServerTime = nil; SessionVault.clear()
         // Bookmarks stay device-local, never overwrite the Android/shared server study state.
     }
