@@ -11,14 +11,15 @@ struct AccountView: View {
         Form {
             if let snapshot = store.snapshot {
                 Section("অ্যাকাউন্ট") {
-                    Text(snapshot.user.name ?? "Nihongo Path"); Text(snapshot.user.email).textSelection(.enabled)
-                    Button("Refresh access") { store.run { try await store.refresh() } }
-                }
-                Section("আপনার access") {
-                    ForEach(StudyLevel.all,id:\.self) { level in
-                        HStack { Text(level); Spacer(); Text(store.hasAccess(level) ? "সক্রিয়" : "Preview").foregroundStyle(.secondary) }
+                    HStack(spacing: 12) {
+                        Image(systemName: "person.crop.circle.fill").font(.system(size: 38))
+                            .foregroundStyle(Color.accentColor).accessibilityHidden(true)
+                        VStack(alignment: .leading) {
+                            Text(snapshot.user.name ?? "Nihongo Path").font(.headline)
+                            Text(snapshot.user.email).font(.footnote).textSelection(.enabled)
+                        }
                     }
-                    Text("iPhone-এ reward বর্তমানে উপলব্ধ নয়। Existing access থাকলে পূর্ণ পাঠ পড়তে পারবেন। এই সংস্করণ credit খরচ বা reward প্রদান করে না।").font(.footnote)
+                    NavigationLink { CreditCenterView() } label: { Label("ক্রেডিট সেন্টার", systemImage: "sparkles") }
                 }
                 Section {
                     Button("Logout") { store.run { try await store.logout() } }
@@ -43,6 +44,15 @@ struct AccountView: View {
                     Text("Sign in · লগইন")
                 } footer: { Text("অ্যাকাউন্ট ছাড়াই preview পড়তে পারবেন। আগে Google দিয়ে account খুললে একই Google account ব্যবহার করুন।") }
             }
+            Section("আপনার পড়ার জায়গা") {
+                NavigationLink {
+                    StudyList(subject: .vocab, onlySaved: true)
+                } label: {
+                    Label("বুকমার্ক ও অগ্রগতি", systemImage: "heart")
+                }
+                LabeledContent("শেখা হয়েছে", value: store.learned.count.formatted())
+                LabeledContent("বুকমার্ক", value: store.saved.count.formatted())
+            }
             Section("পড়ার অভ্যাস") {
                 Button("প্রতিদিন পড়ার reminder") { store.run { try await store.remindDaily(); store.message = "Reminder চালু হয়েছে।" } }
                 Button("Reminder বন্ধ করুন") { store.cancelReminder(); store.message = "Reminder বন্ধ হয়েছে।" }
@@ -60,6 +70,35 @@ struct AccountView: View {
         }
     }
 }
+struct CreditCenterView: View {
+    @EnvironmentObject private var store: StudyStore
+
+    var body: some View {
+        List {
+            if let snapshot = store.snapshot {
+                ForEach(StudyLevel.all, id: \.self) { level in
+                    Section(level) {
+                        LabeledContent("ক্রেডিট", value: (snapshot.balances.first { $0.level == level }?.credits ?? 0).formatted())
+                        if store.hasAccess(level),
+                           let unlock = snapshot.unlocks.first(where: { $0.level == level }),
+                           let expiry = DateParser.date(unlock.expires_at) {
+                            LabeledContent("অ্যাক্সেস শেষ হবে") { Text(expiry, format: .dateTime.day().month().hour().minute()) }
+                        } else {
+                            Text("অ্যাক্সেস বন্ধ").foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                Section {
+                    Text("এই iOS build-এ rewarded ad দিয়ে নতুন ক্রেডিট পাওয়া যায় না।").foregroundStyle(.secondary)
+                    Button("অ্যাক্সেস আপডেট করুন") { store.run { try await store.refresh() } }.disabled(store.busy)
+                }
+            } else {
+                NavigationLink("ক্রেডিট দেখতে লগইন করুন") { AccountView() }
+            }
+        }.navigationTitle("ক্রেডিট সেন্টার")
+    }
+}
+
 struct LicenseView: View {
     private var licenseText: String { guard let url = Bundle.main.url(forResource:"KANJIVG-LICENSE",withExtension:"txt") else { return "Licence file is included with this app." }; return (try? String(contentsOf:url,encoding:.utf8)) ?? "Licence could not be opened." }
     var body: some View {

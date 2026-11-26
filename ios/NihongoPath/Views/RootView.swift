@@ -41,7 +41,7 @@ struct HomeView: View {
                 }
                 HStack(spacing: 8) {
                     homeTile("পড়ার পছন্দ", note: "বিষয় বেছে পড়ুন", art: "AndroidHomeReading") { LibraryView() }
-                    homeTile("ক্রেডিট সেন্টার", note: "রিওয়ার্ড ও অ্যাক্সেস", art: "AndroidHomeCredit") { AccountView() }
+                    homeTile("ক্রেডিট সেন্টার", note: "রিওয়ার্ড ও অ্যাক্সেস", art: "AndroidHomeCredit") { CreditCenterView() }
                 }
                 Text("কানার দ্রুত অনুশীলন").font(.system(size: 12, weight: .semibold))
                     .frame(maxWidth: .infinity).padding(.top, 6)
