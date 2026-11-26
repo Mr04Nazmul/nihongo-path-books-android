@@ -102,12 +102,49 @@ private struct HomePaper: ViewModifier {
     }
 }
 struct LibraryView: View {
+    @Environment(\.colorScheme) private var theme
+    private let names = ["Beginner", "Basic", "Intermediate", "Upper Intermediate", "Advanced"]
+    private let colors: [UInt32] = [0xF6DCE5, 0xEBE2F1, 0xE9EEE7, 0xFFEADB, 0xF4E0E9]
+
     var body: some View {
-        List {
-            ForEach(StudyLevel.all, id: \.self) { level in
-                Section(level) { ForEach(Subject.allCases) { subject in NavigationLink(subject.title) { StudyList(subject: subject, initialLevel: level) } } }
-            }
-        }.navigationTitle("বই · Books")
+        ScrollView {
+            VStack(alignment: .leading, spacing: 9) {
+                Text("▣  JLPT Books").font(.system(size: 24, weight: .semibold, design: .serif))
+                Text("JLPT অনুযায়ী সাজানো পাঠ্যপুস্তকসমূহ").font(.system(size: 11)).foregroundStyle(.secondary)
+                ForEach(Array(StudyLevel.all.enumerated()), id: \.element) { index, level in
+                    NavigationLink {
+                        List {
+                            ForEach(Subject.allCases) { subject in
+                                NavigationLink { StudyList(subject: subject, initialLevel: level) } label: {
+                                    Label(subject.title, systemImage: subject.icon)
+                                }
+                            }
+                        }.navigationTitle(level + " Books")
+                    } label: {
+                        levelCard(level, index: index)
+                    }.buttonStyle(.plain)
+                }
+            }.padding(14)
+        }.navigationTitle("বইঘর").navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func levelCard(_ level: String, index: Int) -> some View {
+        let rgb = colors[index]
+        let color = theme == .dark ? Color(uiColor: .secondarySystemBackground) :
+            Color(red: Double((rgb >> 16) & 255) / 255, green: Double((rgb >> 8) & 255) / 255,
+                  blue: Double(rgb & 255) / 255)
+        return ZStack(alignment: .leading) {
+            color
+            Image("AndroidBooks" + level).resizable().frame(width: 171, height: 85)
+                .frame(maxWidth: .infinity, alignment: .trailing).accessibilityHidden(true)
+            LinearGradient(colors: [color, color, color.opacity(0)], startPoint: .leading, endPoint: .trailing)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(level).font(.system(size: 26, weight: .semibold, design: .serif))
+                Text(names[index]).font(.system(size: 11, weight: .semibold))
+                Text("Vocabulary · Grammar · Kanji").font(.system(size: 9))
+            }.padding(.leading, 15)
+        }.frame(height: 85).clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.pink.opacity(0.15)))
     }
 }
 struct StudyList: View {
