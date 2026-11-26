@@ -265,7 +265,15 @@ struct EntryView: View {
     let level: String
     let subject: Subject
     let protectedContent: Bool
+    @AppStorage("ios.reader.textSize") private var textSize = "standard"
     @State private var valid = true
+    private var readingSize: DynamicTypeSize {
+        switch textSize {
+        case "small": return .small
+        case "large": return .xxLarge
+        default: return .large
+        }
+    }
     @Environment(\.scenePhase) private var scenePhase
     private let clock = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
     var body: some View {
@@ -292,7 +300,8 @@ struct EntryView: View {
                     Button { store.toggleLearned(entry.key(level:level)) } label: { Label(store.learned.contains(entry.key(level: level)) ? "শেখা হয়েছে" : "শেখা হয়েছে হিসেবে রাখুন",systemImage:"checkmark.circle") }.buttonStyle(.borderedProminent)
                 }.padding()
             } else { Text("Access শেষ হয়েছে। পাঠ আবার খুলুন।").padding() }
-        }.navigationTitle(level).navigationBarTitleDisplayMode(.inline)
+        }.dynamicTypeSize(readingSize)
+        .navigationTitle(level).navigationBarTitleDisplayMode(.inline)
         .onReceive(clock) { _ in if protectedContent && !store.hasAccess(level) { valid = false; store.speech.stopSpeaking(at:.immediate) } }
         .onChange(of: scenePhase) { phase in if phase != .active && protectedContent { valid = false; store.speech.stopSpeaking(at:.immediate) } }
         .onDisappear { store.speech.stopSpeaking(at:.immediate) }
