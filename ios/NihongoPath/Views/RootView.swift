@@ -13,40 +13,92 @@ struct RootView: View {
 }
 struct HomeView: View {
     @EnvironmentObject var store: StudyStore
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image("BrandLogo").resizable().scaledToFit().frame(width: 38, height: 38)
+                    Text("Nihongo Path Books").font(.system(size: 18, weight: .semibold, design: .serif))
+                }
+                Text("こんにちは！").font(.system(size: 25, weight: .semibold, design: .serif))
+                Text("চলুন, জাপানি শেখার পথে এগিয়ে যাই")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                Image("AndroidHomeHero").resizable()
+                    .frame(maxWidth: .infinity).frame(height: 101)
+                    .clipShape(RoundedRectangle(cornerRadius: 15))
+                    .accessibilityHidden(true)
                 HStack {
-                    Image("BrandLogo").resizable().scaledToFit().frame(width: 65, height: 65).accessibilityHidden(true)
-                    VStack(alignment: .leading) { Text("Nihongo Path").font(.title2.bold()); Text("বাংলায় জাপানি শিখুন · 日本語").font(.subheadline).foregroundStyle(.secondary) }
+                    Label("শেখা হয়েছে", systemImage: "chart.line.uptrend.xyaxis")
+                    Spacer()
+                    Text(store.learned.count, format: .number).monospacedDigit()
+                }.font(.system(size: 13, weight: .semibold)).padding(12).modifier(HomePaper())
+                HStack(spacing: 8) {
+                    homeTile("বইঘর", note: "JLPT বইসমূহ", art: "AndroidHomeBooks") { LibraryView() }
+                    homeTile("বুকমার্ক", note: "সংরক্ষিত পাঠ", art: "AndroidHomeBookmark") {
+                        StudyList(subject: .vocab, onlySaved: true)
+                    }
                 }
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("こんにちは 🌸").font(.largeTitle.bold())
-                    Text("প্রতিদিন একটু চর্চায় এগিয়ে যান।").font(.title3)
-                    Text("N5 থেকে N1 · শব্দ, ব্যাকরণ ও কানজি").foregroundStyle(.secondary)
-                }.frame(maxWidth: .infinity, alignment: .leading).padding(24).background(Color.pink.opacity(0.10), in: RoundedRectangle(cornerRadius: 24))
-                ForEach(Subject.allCases) { subject in
-                    NavigationLink { StudyList(subject: subject) } label: {
-                        Label(subject.title, systemImage: subject.icon).font(.headline).padding(22).frame(maxWidth: .infinity, alignment: .leading).background(Color.pink.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
-                    }.buttonStyle(.plain)
+                HStack(spacing: 8) {
+                    homeTile("পড়ার পছন্দ", note: "বিষয় বেছে পড়ুন", art: "AndroidHomeReading") { LibraryView() }
+                    homeTile("ক্রেডিট সেন্টার", note: "রিওয়ার্ড ও অ্যাক্সেস", art: "AndroidHomeCredit") { AccountView() }
                 }
-                NavigationLink { AdaptivePracticeView() } label: {
-                    Label("Smart Study", systemImage: "brain.head.profile")
-                        .font(.headline).padding(22)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.pink.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
-                }.buttonStyle(.plain)
-                NavigationLink { MockExamView() } label: {
-                    Label("JLPT Mock Test", systemImage: "checklist")
-                        .font(.headline).padding(22)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.pink.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
-                }.buttonStyle(.plain)
-                NavigationLink { StudyList(subject: .vocab, onlySaved: true) } label: { Label("প্রিয় শব্দ ও পাঠ", systemImage: "heart.fill") }
-                HStack { Label("\(store.saved.count) প্রিয় পাঠ", systemImage:"heart"); Spacer(); Label("\(store.learned.count) শেখা হয়েছে", systemImage:"checkmark.circle") }.font(.footnote)
-                Text("কিছু পাঠ বিনামূল্যে। পূর্ণ পাঠে সার্ভার-যাচাইকৃত access প্রয়োজন।").font(.footnote).foregroundStyle(.secondary)
-            }.padding()
-        }.navigationTitle("Nihongo Path").navigationBarTitleDisplayMode(.inline)
+                Text("কানার দ্রুত অনুশীলন").font(.system(size: 12, weight: .semibold))
+                    .frame(maxWidth: .infinity).padding(.top, 6)
+                HStack(spacing: 6) {
+                    kanaTile("あ", title: "হিরাগানা", ranges: [0x3041...0x3096])
+                    kanaTile("ア", title: "কাতাকানা", ranges: [0x30A1...0x30FA])
+                    kanaTile("１２", title: "সংখ্যা", ranges: [0xFF10...0xFF19])
+                }
+                NavigationLink { MockExamView() } label: { Label("JLPT Mock Test", systemImage: "checklist") }
+                    .padding(12).frame(maxWidth: .infinity, alignment: .leading).modifier(HomePaper())
+                NavigationLink { AdaptivePracticeView() } label: { Label("Smart Study", systemImage: "brain.head.profile") }
+                    .padding(12).frame(maxWidth: .infinity, alignment: .leading).modifier(HomePaper())
+            }.padding(14)
+        }.background(Color.pink.opacity(0.035)).toolbar(.hidden, for: .navigationBar)
+    }
+
+    private func homeTile<Destination: View>(_ title: String, note: String, art: String,
+                                              @ViewBuilder destination: () -> Destination) -> some View {
+        NavigationLink(destination: destination()) {
+            HStack(spacing: 5) {
+                Image(art).resizable().scaledToFit().frame(width: 42, height: 48).accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title).font(.system(size: 12, weight: .semibold))
+                    Text(note).font(.system(size: 10)).foregroundStyle(.secondary)
+                }.frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: "chevron.right").font(.system(size: 9))
+            }.padding(.horizontal, 7).frame(height: 70).modifier(HomePaper())
+        }.buttonStyle(.plain)
+    }
+
+    private func kanaTile(_ glyph: String, title: String, ranges: [ClosedRange<UInt32>]) -> some View {
+        NavigationLink {
+            ScrollView {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 8) {
+                    ForEach(ranges.flatMap { Array($0) }, id: \.self) { code in
+                        if let scalar = Unicode.Scalar(code) {
+                            Button { store.speak(String(scalar)) } label: {
+                                Text(String(scalar)).font(.system(size: 24, design: .serif))
+                                    .frame(maxWidth: .infinity, minHeight: 54).modifier(HomePaper())
+                            }.buttonStyle(.plain)
+                        }
+                    }
+                }.padding()
+            }.navigationTitle(title)
+        } label: {
+            VStack(spacing: 2) {
+                Text(glyph).font(.system(size: 25, design: .serif))
+                Text(title).font(.system(size: 10))
+            }.frame(maxWidth: .infinity).frame(height: 62).modifier(HomePaper())
+        }.buttonStyle(.plain)
+    }
+}
+
+private struct HomePaper: ViewModifier {
+    func body(content: Content) -> some View {
+        content.background(.background, in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.pink.opacity(0.15)))
     }
 }
 struct LibraryView: View {
