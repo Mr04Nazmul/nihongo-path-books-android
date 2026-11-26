@@ -2,7 +2,9 @@ import SwiftUI
 
 struct AccountView: View {
     @EnvironmentObject var store: StudyStore
-    @State private var email = "", password = "", name = ""
+    @State private var email = ""
+    @State private var password = ""
+    @State private var name = ""
     @State private var register = false
     @State private var confirmDelete = false
     var body: some View {
@@ -23,7 +25,7 @@ struct AccountView: View {
                     Button("Delete Nihongo app data",role:.destructive) { confirmDelete = true }
                 } footer: { Text("এটি shared Nihongo Path Books profile, credits, access ও account-linked history মুছে দেয়; Android-এও প্রভাব পড়ে। Shared sign-in identity রাখা হয়। সম্পূর্ণ identity মুছতে support-এ যোগাযোগ করুন।") }
             } else {
-                Section("Sign in · লগইন") {
+                Section {
                     TextField("ইমেইল",text:$email).textContentType(.username).keyboardType(.emailAddress).textInputAutocapitalization(.never).autocorrectionDisabled()
                     SecureField("পাসওয়ার্ড",text:$password).textContentType(register ? .newPassword : .password)
                     if register { TextField("আপনার নাম",text:$name).textContentType(.name) }
@@ -32,6 +34,8 @@ struct AccountView: View {
                         store.run { defer { password = "" }; try await store.login(email:email,password:password,name:name,register:register) }
                     }.disabled(store.busy)
                     if store.busy { ProgressView() }
+                } header: {
+                    Text("Sign in · লগইন")
                 } footer: { Text("অ্যাকাউন্ট ছাড়াই preview পড়তে পারবেন। আগে Google দিয়ে account খুললে email/password login কাজ নাও করতে পারে; support-এ যোগাযোগ করুন। iOS social login এখনো উপলব্ধ নয়।") }
             }
             Section("পড়ার অভ্যাস") {

@@ -1,7 +1,7 @@
 name: iOS · native build and simulator checks
 on:
   push:
-    branches: ['ios/nihongo-path-1.0.0']
+    branches: ['ios/nihongo-path-1.0.0', 'ios/nihongo-path-1.20.3']
     paths: ['ios/**', '.github/workflows/ios.yml']
   workflow_dispatch:
 permissions:
