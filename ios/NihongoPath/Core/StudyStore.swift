@@ -30,7 +30,12 @@ import UIKit
     func toggleLearned(_ key: String) { if learned.contains(key) { learned.remove(key) } else { learned.insert(key) }; defaults.set(Array(learned), forKey: "ios.learned") }
     func speak(_ text: String) {
         speech.stopSpeaking(at: .immediate)
-        let u = AVSpeechUtterance(string: text); u.voice = AVSpeechSynthesisVoice(language: "ja-JP"); u.rate = 0.42; speech.speak(u)
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = AVSpeechSynthesisVoice(language: "ja-JP")
+        let rate = defaults.object(forKey: "ios.reader.speechRate") == nil
+            ? 0.42 : defaults.double(forKey: "ios.reader.speechRate")
+        utterance.rate = Float(min(max(rate, 0.25), 0.60))
+        speech.speak(utterance)
     }
     func local<T: Decodable>(_ resource: String, as: T.Type = T.self) throws -> T {
         guard !resource.contains(".."), let url = Bundle.main.url(forResource: resource, withExtension: "json", subdirectory: "StudyData") else { throw APIError(status: 0, message: "Bundled study content could not be found") }
