@@ -95,7 +95,9 @@ jobs:
           package=$(mktemp -d)
           mkdir "$package/Payload"
           ditto "$app" "$package/Payload/NihongoPath.app"
-          (cd "$package" && ditto -c -k Payload checkpoint.ipa)
+          (cd "$package" && ditto -c -k --keepParent Payload checkpoint.ipa)
           unzip -tq "$package/checkpoint.ipa"
           unzip -p "$package/checkpoint.ipa" Payload/NihongoPath.app/Info.plist |
             cmp - "$plist"
+          unzip -p "$package/checkpoint.ipa" "Payload/NihongoPath.app/$executable" |
+            cmp - "$app/$executable"
