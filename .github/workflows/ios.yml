@@ -79,15 +79,17 @@ jobs:
           test "$bundle" = online.devnazu.books.ios
           test "$platform" = iPhoneOS
           test ! -e "$app/embedded.mobileprovision"
-          xcrun lipo -verify_arch arm64 "$app/$executable"
-          xcrun vtool -show-build "$app/$executable"
+          xcrun lipo "$app/$executable" -verify_arch arm64
+          build_info=$(xcrun vtool -show-build "$app/$executable")
+          echo "$build_info"
+          echo "$build_info" | grep -Eq "platform[[:space:]]+IOS$"
           xcrun otool -L "$app/$executable"
           if [ -d "$app/Frameworks" ]; then
             find "$app/Frameworks" -name Info.plist -print0 |
               while IFS= read -r -d '' framework_plist; do
                 plutil -lint "$framework_plist"
                 framework_bin=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$framework_plist")
-                xcrun lipo -verify_arch arm64 "$(dirname "$framework_plist")/$framework_bin"
+                xcrun lipo "$(dirname "$framework_plist")/$framework_bin" -verify_arch arm64
               done
           fi
           package=$(mktemp -d)

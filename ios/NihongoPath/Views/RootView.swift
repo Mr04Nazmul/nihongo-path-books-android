@@ -30,6 +30,12 @@ struct HomeView: View {
                         Label(subject.title, systemImage: subject.icon).font(.headline).padding(22).frame(maxWidth: .infinity, alignment: .leading).background(Color.pink.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
                     }.buttonStyle(.plain)
                 }
+                NavigationLink { MockExamView() } label: {
+                    Label("JLPT Mock Test", systemImage: "checklist")
+                        .font(.headline).padding(22)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.pink.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
+                }.buttonStyle(.plain)
                 NavigationLink { StudyList(subject: .vocab, onlySaved: true) } label: { Label("প্রিয় শব্দ ও পাঠ", systemImage: "heart.fill") }
                 HStack { Label("\(store.saved.count) প্রিয় পাঠ", systemImage:"heart"); Spacer(); Label("\(store.learned.count) শেখা হয়েছে", systemImage:"checkmark.circle") }.font(.footnote)
                 Text("কিছু পাঠ বিনামূল্যে। পূর্ণ পাঠে সার্ভার-যাচাইকৃত access প্রয়োজন।").font(.footnote).foregroundStyle(.secondary)
