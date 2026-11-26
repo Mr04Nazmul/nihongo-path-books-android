@@ -57,16 +57,63 @@ private struct ExamPaper: Decodable {
     }
 }
 
-private func examText(_ source: String) -> String {
-    source.replacingOccurrences(of: "<(?:br\\s*/?|/p|/div|/tr|/li)>", with: "\n", options: [.regularExpression, .caseInsensitive])
-        .replacingOccurrences(of: "<[^>]*>", with: "", options: .regularExpression)
-        .replacingOccurrences(of: "&nbsp;", with: " ")
+private func decodeExamText(_ source: String) -> String {
+    source.replacingOccurrences(of: "&nbsp;", with: " ")
         .replacingOccurrences(of: "&lt;", with: "<")
         .replacingOccurrences(of: "&gt;", with: ">")
         .replacingOccurrences(of: "&quot;", with: "\"")
         .replacingOccurrences(of: "&#39;", with: "'")
         .replacingOccurrences(of: "&amp;", with: "&")
+}
+
+private func examText(_ source: String) -> String {
+    decodeExamText(source.replacingOccurrences(of: "<[^>]*>", with: "", options: .regularExpression))
         .trimmingCharacters(in: .whitespacesAndNewlines)
+}
+
+private func formattedExamText(_ source: String) -> Text {
+    let tagPattern = #"<\s*(/?)\s*([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>"#
+    guard let regex = try? NSRegularExpression(pattern: tagPattern) else { return Text(verbatim: examText(source)) }
+    let tags = regex.matches(in: source, range: NSRange(source.startIndex..., in: source))
+    var cursor = source.startIndex
+    var openTags: [String] = []
+    var output = Text(verbatim: "")
+
+    func append(_ value: String) {
+        guard !value.isEmpty else { return }
+        var text = Text(verbatim: decodeExamText(value))
+        if openTags.contains("u") { text = text.underline() }
+        if openTags.contains("strong") || openTags.contains("b") { text = text.bold() }
+        if openTags.contains("em") || openTags.contains("i") { text = text.italic() }
+        if openTags.contains("rp") { return }
+        output = output + text
+    }
+
+    for match in tags {
+        guard let range = Range(match.range, in: source),
+              let nameRange = Range(match.range(at: 2), in: source) else { continue }
+        append(String(source[cursor..<range.lowerBound]))
+        cursor = range.upperBound
+        let name = source[nameRange].lowercased()
+        let closing = match.range(at: 1).length > 0
+        if closing, let index = openTags.lastIndex(of: name) { openTags.remove(at: index) }
+        switch (name, closing) {
+        case ("br", _), ("p", true), ("div", true), ("tr", true), ("li", true):
+            append("\n")
+        case ("td", true), ("th", true):
+            append("   ")
+        case ("rt", false):
+            append("（")
+        case ("rt", true):
+            append("）")
+        case ("u", false), ("b", false), ("strong", false), ("i", false), ("em", false), ("rp", false):
+            openTags.append(name)
+        default:
+            break
+        }
+    }
+    append(String(source[cursor...]))
+    return output
 }
 
 @MainActor
@@ -218,8 +265,8 @@ private struct MockPaperView: View {
         Section {
             Text(String(format: "%02d:%02d", remaining / 60, remaining % 60)).monospacedDigit()
             Text("\(index + 1) / \(paper.questions.count) · \(question.category.title)")
-            if let passage = question.passage { Text(examText(passage)) }
-            Text(examText(question.prompt)).font(.headline)
+            if let passage = question.passage { formattedExamText(passage) }
+            formattedExamText(question.prompt).font(.headline)
         }
         Section {
             ForEach(question.choices.indices, id: \.self) { choice in
@@ -227,8 +274,11 @@ private struct MockPaperView: View {
                     updateTime()
                     if !finished { answers[question.id] = choice }
                 } label: {
-                    Label(examText(question.choices[choice]),
-                          systemImage: answers[question.id] == choice ? "checkmark.circle.fill" : "circle")
+                    Label {
+                        formattedExamText(question.choices[choice])
+                    } icon: {
+                        Image(systemName: answers[question.id] == choice ? "checkmark.circle.fill" : "circle")
+                    }
                 }
             }
         }
@@ -251,14 +301,14 @@ private struct MockPaperView: View {
         Section("উত্তর ও ব্যাখ্যা") {
             ForEach(paper.questions) { question in
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(examText(question.prompt)).font(.headline)
+                    formattedExamText(question.prompt).font(.headline)
                     if let selected = answers[question.id] {
-                        Text("তোমার উত্তর · " + examText(question.choices[selected]))
+                        Text("তোমার উত্তর · ") + formattedExamText(question.choices[selected])
                     } else {
                         Text("উত্তর দেওয়া হয়নি")
                     }
-                    Text("সঠিক উত্তর · " + examText(question.choices[question.answer]))
-                    if let explanation = question.explanation { Text(examText(explanation)) }
+                    Text("সঠিক উত্তর · ") + formattedExamText(question.choices[question.answer])
+                    if let explanation = question.explanation { formattedExamText(explanation) }
                 }
             }
         }
