@@ -157,10 +157,46 @@ struct StudyList: View {
     @State private var loading = false
     @State private var error: String?
     @State private var showingFull = false
+    @State private var lesson = 0
+    private let lessonSize = 15
     @Environment(\.scenePhase) private var scenePhase
     private let clock = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
     init(subject: Subject, onlySaved: Bool = false, initialLevel: String = "N5") { self.subject = subject; self.onlySaved = onlySaved; _level = State(initialValue: initialLevel) }
-    var filtered: [StudyEntry] { entries.filter { e in (!onlySaved || store.saved.contains(e.key(level: level))) && (query.isEmpty || (e.title + e.pronunciation + e.translation).localizedCaseInsensitiveContains(query)) } }
+    private var resumeKey: String {
+        let account = store.snapshot?.user.id ?? "guest"
+        return "ios.reader.resume." + [account, level, subject.rawValue, showingFull ? "full" : "preview"].joined(separator: ".")
+    }
+
+    private var lessonCount: Int { (entries.count + lessonSize - 1) / lessonSize }
+    private var lessonEntries: [StudyEntry] {
+        Array(entries.dropFirst(lesson * lessonSize).prefix(lessonSize))
+    }
+    private var resumeEntry: StudyEntry? {
+        let last = UserDefaults.standard.string(forKey: resumeKey)
+        return lessonEntries.first(where: { $0.id == last }) ??
+            lessonEntries.first(where: { !store.learned.contains($0.key(level: level)) }) ??
+            lessonEntries.first
+    }
+
+    var filtered: [StudyEntry] {
+        if query.isEmpty && !onlySaved { return lessonEntries }
+        return entries.filter { entry in
+            (!onlySaved || store.saved.contains(entry.key(level: level))) &&
+                (query.isEmpty || (entry.title + entry.pronunciation + entry.translation).localizedCaseInsensitiveContains(query))
+        }
+    }
+
+    private func destination(_ entry: StudyEntry) -> some View {
+        let key = resumeKey
+        return EntryView(entry: entry, level: level, subject: subject, protectedContent: showingFull)
+            .onAppear { UserDefaults.standard.set(entry.id, forKey: key) }
+    }
+
+    private func restoreLesson() {
+        let last = UserDefaults.standard.string(forKey: resumeKey)
+        lesson = (entries.firstIndex(where: { $0.id == last }) ?? 0) / lessonSize
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             Picker("JLPT level", selection: $level) { ForEach(StudyLevel.all, id: \.self) { Text($0).tag($0) } }.pickerStyle(.segmented).padding()
@@ -169,8 +205,25 @@ struct StudyList: View {
                     Text(showingFull ? "পূর্ণ পাঠ · সক্রিয় access" : (subject == .kanji ? "প্রথম ১০টি কানজি বিনামূল্যে" : "প্রথম ৫টি পাঠ বিনামূল্যে")).font(.footnote).foregroundStyle(.secondary)
                     if let error { Text(error).foregroundStyle(.red); Button("আবার চেষ্টা করুন") { Task { await load() } } }
                     if loading { ProgressView("পাঠ খোলা হচ্ছে…") }
+                    if query.isEmpty && !onlySaved, let resumeEntry {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("পাঠ \(lesson + 1) / \(lessonCount)").font(.headline)
+                            ProgressView(value: Double(lessonEntries.filter { store.learned.contains($0.key(level: level)) }.count),
+                                         total: Double(lessonEntries.count))
+                            NavigationLink { destination(resumeEntry) } label: {
+                                Label("পাঠ শুরু", systemImage: "play.fill")
+                            }
+                            if lessonCount > 1 {
+                                HStack {
+                                    Button("আগের পাঠ") { lesson -= 1 }.disabled(lesson == 0)
+                                    Spacer()
+                                    Button("পরের পাঠ") { lesson += 1 }.disabled(lesson + 1 >= lessonCount)
+                                }.buttonStyle(.borderless)
+                            }
+                        }.padding(.vertical, 5)
+                    }
                     ForEach(filtered) { entry in
-                        NavigationLink { EntryView(entry: entry, level: level, subject: subject, protectedContent: showingFull) } label: {
+                        NavigationLink { destination(entry) } label: {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(entry.title).font(.title2).foregroundStyle(.primary)
                                 Text(entry.pronunciation).font(.subheadline).foregroundStyle(.secondary)
@@ -189,19 +242,20 @@ struct StudyList: View {
         .navigationTitle(onlySaved ? "প্রিয় পাঠ" : subject.title).navigationBarTitleDisplayMode(.inline)
         .searchable(text: $query, prompt: "জাপানি / বাংলা / reading")
         .task(id: level + store.token) { await load() }
-        .onReceive(clock) { _ in if showingFull && !store.hasAccess(level) { entries = (try? store.preview(level: level, subject: subject)) ?? []; showingFull = false } }
+        .onReceive(clock) { _ in if showingFull && !store.hasAccess(level) { entries = (try? store.preview(level: level, subject: subject)) ?? []; showingFull = false; restoreLesson() } }
         .onChange(of: scenePhase) { phase in if phase != .active && showingFull { entries = []; showingFull = false } else if phase == .active { Task { await load() } } }
     }
     @MainActor private func load() async {
         loading = true; error = nil; entries = []; let selected = level
-        defer { loading = false }
+        let token = store.token
+        defer { if selected == level && token == store.token && !Task.isCancelled { loading = false } }
         do {
             let result = try await store.fetchEntries(level: selected, subject: subject)
-            guard selected == level, !Task.isCancelled else { return }
-            entries = result; showingFull = store.hasAccess(selected)
+            guard selected == level, token == store.token, !Task.isCancelled else { return }
+            entries = result; showingFull = store.hasAccess(selected); restoreLesson()
         } catch {
-            guard selected == level else { return }
-            entries = (try? store.preview(level: selected, subject: subject)) ?? []; showingFull = false; self.error = error.localizedDescription
+            guard selected == level, token == store.token, !Task.isCancelled else { return }
+            entries = (try? store.preview(level: selected, subject: subject)) ?? []; showingFull = false; restoreLesson(); self.error = error.localizedDescription
         }
     }
 }
