@@ -101,3 +101,15 @@ jobs:
             cmp - "$plist"
           unzip -p "$package/checkpoint.ipa" "Payload/NihongoPath.app/$executable" |
             cmp - "$app/$executable"
+          mkdir -p device-artifacts
+          cp "$package/checkpoint.ipa" device-artifacts/Nihongo-Path-Books-iOS-development.ipa
+          (
+            cd device-artifacts
+            shasum -a 256 Nihongo-Path-Books-iOS-development.ipa > SHA256SUMS
+          )
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Nihongo-Path-Books-iOS-device-development
+          path: ios/NihongoPath/device-artifacts/
+          if-no-files-found: error
+          retention-days: 14
