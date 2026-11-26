@@ -47,3 +47,53 @@ jobs:
             ios/NihongoPath/iPhone-home.png
             ios/NihongoPath/NihongoPath-iOS-Simulator.zip
           retention-days: 30
+  device-release:
+    if: github.ref == 'refs/heads/ios/nihongo-path-1.20.3'
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate Xcode project
+        working-directory: ios/NihongoPath
+        run: |
+          brew install xcodegen
+          xcodegen generate
+      - name: Build unsigned iPhone Release
+        working-directory: ios/NihongoPath
+        run: |
+          set -o pipefail
+          xcodebuild -project NihongoPath.xcodeproj -scheme NihongoPath \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -derivedDataPath device-build CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO build
+      - name: Verify device bundle and IPA structure
+        working-directory: ios/NihongoPath
+        run: |
+          set -euo pipefail
+          app=device-build/Build/Products/Release-iphoneos/NihongoPath.app
+          plist="$app/Info.plist"
+          plutil -lint "$plist"
+          executable=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$plist")
+          bundle=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$plist")
+          platform=$(/usr/libexec/PlistBuddy -c 'Print CFBundleSupportedPlatforms:0' "$plist")
+          test "$bundle" = online.devnazu.books.ios
+          test "$platform" = iPhoneOS
+          test ! -e "$app/embedded.mobileprovision"
+          xcrun lipo -verify_arch arm64 "$app/$executable"
+          xcrun vtool -show-build "$app/$executable"
+          xcrun otool -L "$app/$executable"
+          if [ -d "$app/Frameworks" ]; then
+            find "$app/Frameworks" -name Info.plist -print0 |
+              while IFS= read -r -d '' framework_plist; do
+                plutil -lint "$framework_plist"
+                framework_bin=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$framework_plist")
+                xcrun lipo -verify_arch arm64 "$(dirname "$framework_plist")/$framework_bin"
+              done
+          fi
+          package=$(mktemp -d)
+          mkdir "$package/Payload"
+          ditto "$app" "$package/Payload/NihongoPath.app"
+          (cd "$package" && ditto -c -k Payload checkpoint.ipa)
+          unzip -tq "$package/checkpoint.ipa"
+          unzip -p "$package/checkpoint.ipa" Payload/NihongoPath.app/Info.plist |
+            cmp - "$plist"
