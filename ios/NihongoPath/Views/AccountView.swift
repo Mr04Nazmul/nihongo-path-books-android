@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct AccountView: View {
+    @Environment(\.colorScheme) private var theme
+    private var palette: SakuraPalette { SakuraPalette(theme) }
     @EnvironmentObject var store: StudyStore
     @State private var email = ""
     @State private var password = ""
@@ -69,7 +71,9 @@ struct AccountView: View {
                 NavigationLink("Licences & credits") { LicenseView() }
                 Text("iOS 1.0.0 · Development build").font(.caption)
             }
-        }.navigationTitle("প্রোফাইল")
+        }.scrollContentBackground(.hidden)
+        .background(palette.paper)
+        .navigationTitle("প্রোফাইল")
         .confirmationDialog("Shared Nihongo Path Books data মুছবেন? Android access ও credits-ও মুছে যাবে। এই কাজ ফেরানো যাবে না।",isPresented:$confirmDelete,titleVisibility:.visible) {
             Button("হ্যাঁ, shared app data মুছুন",role:.destructive) { store.run { try await store.deleteAppData() } }
             Button("বাতিল",role:.cancel) {}

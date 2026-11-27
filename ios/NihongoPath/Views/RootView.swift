@@ -1,5 +1,31 @@
 import SwiftUI
 
+struct SakuraPalette {
+    let dark: Bool
+    let ink: Color
+    let muted: Color
+    let paper: Color
+    let surface: Color
+    let line: Color
+    let accent: Color
+
+    init(_ scheme: ColorScheme) {
+        dark = scheme == .dark
+        ink = Self.color(dark ? 0xffdeef : 0x4d142d)
+        muted = Self.color(dark ? 0xd9acc0 : 0x734256)
+        paper = Self.color(dark ? 0x251726 : 0xfff7f9)
+        surface = Self.color(dark ? 0x351d31 : 0xfff2f6)
+        line = Self.color(dark ? 0x9c5178 : 0xe7c7d3)
+        accent = Self.color(dark ? 0xe77fb4 : 0xa03156)
+    }
+
+    static func color(_ value: UInt32) -> Color {
+        Color(red: Double((value >> 16) & 255) / 255,
+              green: Double((value >> 8) & 255) / 255,
+              blue: Double(value & 255) / 255)
+    }
+}
+
 struct RootView: View {
     @EnvironmentObject var store: StudyStore
     var body: some View {
@@ -12,6 +38,7 @@ struct RootView: View {
     }
 }
 struct HomeView: View {
+    @Environment(\.colorScheme) private var theme
     @EnvironmentObject var store: StudyStore
 
     var body: some View {
@@ -55,7 +82,7 @@ struct HomeView: View {
                 NavigationLink { AdaptivePracticeView() } label: { Label("Smart Study", systemImage: "brain.head.profile") }
                     .padding(12).frame(maxWidth: .infinity, alignment: .leading).modifier(HomePaper())
             }.padding(14)
-        }.background(Color.pink.opacity(0.035)).toolbar(.hidden, for: .navigationBar)
+        }.background(SakuraPalette(theme).paper).toolbar(.hidden, for: .navigationBar)
     }
 
     private func homeTile<Destination: View>(_ title: String, note: String, art: String,
@@ -96,9 +123,12 @@ struct HomeView: View {
 }
 
 private struct HomePaper: ViewModifier {
+    @Environment(\.colorScheme) private var theme
+
     func body(content: Content) -> some View {
-        content.background(.background, in: RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.pink.opacity(0.15)))
+        let palette = SakuraPalette(theme)
+        content.background(palette.surface, in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(palette.line))
     }
 }
 struct LibraryView: View {
@@ -148,6 +178,8 @@ struct LibraryView: View {
     }
 }
 struct StudyList: View {
+    @Environment(\.colorScheme) private var theme
+    private var palette: SakuraPalette { SakuraPalette(theme) }
     @EnvironmentObject var store: StudyStore
     let subject: Subject
     var onlySaved = false
@@ -206,21 +238,10 @@ struct StudyList: View {
                     if let error { Text(error).foregroundStyle(.red); Button("আবার চেষ্টা করুন") { Task { await load() } } }
                     if loading { ProgressView("পাঠ খোলা হচ্ছে…") }
                     if query.isEmpty && !onlySaved, let resumeEntry {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("পাঠ \(lesson + 1) / \(lessonCount)").font(.headline)
-                            ProgressView(value: Double(lessonEntries.filter { store.learned.contains($0.key(level: level)) }.count),
-                                         total: Double(lessonEntries.count))
-                            NavigationLink { destination(resumeEntry) } label: {
-                                Label("পাঠ শুরু", systemImage: "play.fill")
-                            }
-                            if lessonCount > 1 {
-                                HStack {
-                                    Button("আগের পাঠ") { lesson -= 1 }.disabled(lesson == 0)
-                                    Spacer()
-                                    Button("পরের পাঠ") { lesson += 1 }.disabled(lesson + 1 >= lessonCount)
-                                }.buttonStyle(.borderless)
-                            }
-                        }.padding(.vertical, 5)
+                        lessonCard(resumeEntry)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 8, trailing: 0))
                     }
                     ForEach(filtered) { entry in
                         NavigationLink { destination(entry) } label: {
@@ -230,21 +251,65 @@ struct StudyList: View {
                                 Text(entry.translation).font(.body)
                             }.padding(.vertical, 5)
                         }
-                        .swipeActions { Button { store.toggleSaved(entry.key(level: level)) } label: { Label("প্রিয়", systemImage: "heart") }.tint(.pink) }
+                        .swipeActions { Button { store.toggleSaved(entry.key(level: level)) } label: { Label("প্রিয়", systemImage: "heart") }.tint(palette.accent) }
+                        .listRowBackground(palette.surface)
+                        .listRowSeparatorTint(palette.line)
                     }
                     if filtered.isEmpty && !loading && error == nil { Text("কোনো পাঠ পাওয়া যায়নি।").foregroundStyle(.secondary) }
                 }
                 if !showingFull {
                     Section { Text("পূর্ণ পাঠের access থাকলে প্রোফাইলে sign in করুন। iPhone-এ নতুন reward বর্তমানে উপলব্ধ নয়; কোনো credit কাটা হবে না।").font(.footnote) }
                 }
-            }.listStyle(.insetGrouped).refreshable { do { try await store.refresh() } catch { self.error = error.localizedDescription }; await load() }
+            }.listStyle(.insetGrouped).scrollContentBackground(.hidden).refreshable { do { try await store.refresh() } catch { self.error = error.localizedDescription }; await load() }
         }
+        .background(palette.paper)
         .navigationTitle(onlySaved ? "প্রিয় পাঠ" : subject.title).navigationBarTitleDisplayMode(.inline)
         .searchable(text: $query, prompt: "জাপানি / বাংলা / reading")
         .task(id: level + store.token) { await load() }
         .onReceive(clock) { _ in if showingFull && !store.hasAccess(level) { entries = (try? store.preview(level: level, subject: subject)) ?? []; showingFull = false; restoreLesson() } }
         .onChange(of: scenePhase) { phase in if phase != .active && showingFull { entries = []; showingFull = false } else if phase == .active { Task { await load() } } }
     }
+    private func lessonCard(_ entry: StudyEntry) -> some View {
+        let learned = lessonEntries.filter { store.learned.contains($0.key(level: level)) }.count
+        let fill: [UInt32] = palette.dark ? [0x3b2137, 0x251726] : [0xfff8fc, 0xfbd8e9, 0xfff0f7]
+        return VStack(alignment: .leading, spacing: 11) {
+            HStack(alignment: .top, spacing: 7) {
+                Image("AndroidHomeBooks").resizable().scaledToFit()
+                    .frame(width: 31, height: 35).accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("পাঠ \(lesson + 1) / \(lessonCount)").font(.headline)
+                    Text(subject.title).font(.caption)
+                }
+                Spacer(minLength: 6)
+                Text("\(learned)/\(lessonEntries.count)").font(.caption.monospacedDigit())
+                    .padding(6).background(palette.surface, in: Capsule())
+            }
+            ProgressView(value: Double(learned), total: Double(lessonEntries.count)).tint(palette.accent)
+            HStack(spacing: 6) {
+                Button("আগের পাঠ") { lesson -= 1 }.disabled(lesson == 0)
+                    .frame(maxWidth: .infinity)
+                NavigationLink { destination(entry) } label: {
+                    Text("পাঠ শুরু").fontWeight(.semibold)
+                        .frame(maxWidth: .infinity, minHeight: 42)
+                        .foregroundStyle(.white)
+                        .background(
+                            LinearGradient(colors: [SakuraPalette.color(0xfa5299), SakuraPalette.color(0xbd0f59)],
+                                           startPoint: .top, endPoint: .bottom),
+                            in: RoundedRectangle(cornerRadius: 16)
+                        )
+                }.buttonStyle(.plain)
+                Button("পরের পাঠ") { lesson += 1 }.disabled(lesson + 1 >= lessonCount)
+                    .frame(maxWidth: .infinity)
+            }.font(.caption.weight(.semibold)).buttonStyle(.borderless)
+        }
+        .foregroundStyle(palette.ink)
+        .padding(12)
+        .background(LinearGradient(colors: fill.map(SakuraPalette.color), startPoint: .topLeading, endPoint: .bottomTrailing),
+                    in: RoundedRectangle(cornerRadius: 20))
+        .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(SakuraPalette.color(0xed4c91)))
+        .shadow(color: palette.accent.opacity(0.16), radius: 8, y: 3)
+    }
+
     @MainActor private func load() async {
         loading = true; error = nil; entries = []; let selected = level
         let token = store.token
@@ -260,6 +325,8 @@ struct StudyList: View {
     }
 }
 struct EntryView: View {
+    @Environment(\.colorScheme) private var theme
+    private var palette: SakuraPalette { SakuraPalette(theme) }
     @EnvironmentObject var store: StudyStore
     let entry: StudyEntry
     let level: String
@@ -280,9 +347,12 @@ struct EntryView: View {
         ScrollView {
             if valid {
                 VStack(alignment: .leading, spacing: 18) {
-                    Text(entry.title).font(.system(size: subject == .kanji ? 80 : 32, weight: .medium, design: .serif)).frame(maxWidth: .infinity)
-                    Text(entry.pronunciation).foregroundStyle(.secondary).frame(maxWidth: .infinity)
-                    Text(entry.translation).font(.title3)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(level + " / " + subject.title).font(.caption).foregroundStyle(palette.muted)
+                        Text(entry.title).font(.system(size: subject == .kanji ? 65 : 32, weight: .medium, design: .serif))
+                        Text(entry.pronunciation).foregroundStyle(palette.muted)
+                        Text(entry.translation).font(.title3)
+                    }.padding(14).frame(maxWidth: .infinity, alignment: .leading).modifier(HomePaper())
                     HStack {
                         Button { store.speak(entry.pronunciation) } label: { Label("উচ্চারণ", systemImage:"speaker.wave.2") }
                         Spacer()
@@ -295,12 +365,12 @@ struct EntryView: View {
                         StrokeView(character: entry.character ?? entry.title, level: level, protectedContent: protectedContent)
                     }
                     ForEach(Array((entry.examples ?? []).enumerated()), id: \.offset) { _, example in
-                        VStack(alignment: .leading, spacing: 5) { Text(example.japanese).font(.title3); Text(example.reading ?? "").foregroundStyle(.secondary); Text(example.translation) }.padding().frame(maxWidth:.infinity,alignment:.leading).background(Color.pink.opacity(0.06),in:RoundedRectangle(cornerRadius:12))
+                        VStack(alignment: .leading, spacing: 5) { Text(example.japanese).font(.title3); Text(example.reading ?? "").foregroundStyle(.secondary); Text(example.translation) }.padding().frame(maxWidth:.infinity,alignment:.leading).modifier(HomePaper())
                     }
                     Button { store.toggleLearned(entry.key(level:level)) } label: { Label(store.learned.contains(entry.key(level: level)) ? "শেখা হয়েছে" : "শেখা হয়েছে হিসেবে রাখুন",systemImage:"checkmark.circle") }.buttonStyle(.borderedProminent)
                 }.padding()
             } else { Text("Access শেষ হয়েছে। পাঠ আবার খুলুন।").padding() }
-        }.dynamicTypeSize(readingSize)
+        }.background(palette.paper).foregroundStyle(palette.ink).dynamicTypeSize(readingSize)
         .navigationTitle(level).navigationBarTitleDisplayMode(.inline)
         .onReceive(clock) { _ in if protectedContent && !store.hasAccess(level) { valid = false; store.speech.stopSpeaking(at:.immediate) } }
         .onChange(of: scenePhase) { phase in if phase != .active && protectedContent { valid = false; store.speech.stopSpeaking(at:.immediate) } }
